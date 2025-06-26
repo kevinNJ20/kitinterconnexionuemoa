@@ -1,0 +1,123 @@
+#%RAML 1.0
+title: Kit d'Interconnexion UEMOA - API
+version: v1
+baseUri: http://localhost:8080/api/v1
+mediaType: application/json
+
+documentation:
+  - title: Kit d'Interconnexion des Systèmes Douaniers UEMOA
+    content: |
+      Cette API permet l'interconnexion des systèmes informatiques douaniers 
+      des États membres de l'UEMOA dans le cadre de la mise en œuvre du régime 
+      de la libre pratique.
+
+types:
+  Manifeste:
+    type: object
+    properties:
+      numeroManifeste: string
+      transporteur: string
+      portEmbarquement: string
+      portDebarquement: string
+      dateArrivee: date-only
+      marchandises: Marchandise[]
+  
+  Marchandise:
+    type: object
+    properties:
+      codeSH: string
+      designation: string
+      poidsBrut: number
+      nombreColis: integer
+      destinataire: string
+      paysDestination: string
+  
+  NotificationPaiement:
+    type: object
+    properties:
+      numeroDeclaration: string
+      manifesteOrigine: string
+      montantPaye: number
+      referencePaiement: string
+      datePaiement: datetime
+      paysDeclarant: string
+
+/manifeste:
+  /transmission:
+    post:
+      description: Réception d'un manifeste depuis un pays de prime abord
+      body:
+        application/json:
+          type: Manifeste
+          example: |
+            {
+              "numeroManifeste": "MAN2025001",
+              "transporteur": "MAERSK LINE",
+              "portEmbarquement": "ROTTERDAM",
+              "portDebarquement": "ABIDJAN",
+              "dateArrivee": "2025-01-15",
+              "marchandises": [
+                {
+                  "codeSH": "8703.21.10",
+                  "designation": "Véhicule particulier",
+                  "poidsBrut": 1500.00,
+                  "nombreColis": 1,
+                  "destinataire": "IMPORT SARL",
+                  "paysDestination": "BFA"
+                }
+              ]
+            }
+      responses:
+        200:
+          body:
+            application/json:
+              example: |
+                {
+                  "status": "SUCCESS",
+                  "message": "Manifeste transmis avec succès",
+                  "numeroManifeste": "MAN2025001",
+                  "timestamp": "2025-01-15T10:30:00Z"
+                }
+
+/paiement:
+  /notification:
+    post:
+      description: Notification de paiement depuis un pays de destination
+      body:
+        application/json:
+          type: NotificationPaiement
+          example: |
+            {
+              "numeroDeclaration": "DEC2025001",
+              "manifesteOrigine": "MAN2025001",
+              "montantPaye": 250000.00,
+              "referencePaiement": "PAY2025001",
+              "datePaiement": "2025-01-15T14:30:00Z",
+              "paysDeclarant": "BFA"
+            }
+      responses:
+        200:
+          body:
+            application/json:
+              example: |
+                {
+                  "status": "SUCCESS",
+                  "message": "Paiement confirmé, mainlevée autorisée",
+                  "numeroDeclaration": "DEC2025001",
+                  "timestamp": "2025-01-15T14:35:00Z"
+                }
+
+/health:
+  get:
+    description: Vérification de l'état du service
+    responses:
+      200:
+        body:
+          application/json:
+            example: |
+              {
+                "service": "Kit Interconnexion UEMOA",
+                "status": "UP",
+                "version": "1.0.0-POC",
+                "timestamp": "2025-01-15T10:00:00Z"
+              }

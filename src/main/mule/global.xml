@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+	xmlns:jms="http://www.mulesoft.org/schema/mule/jms"
+      xmlns:context="http://www.springframework.org/schema/context"
+      xmlns:db="http://www.mulesoft.org/schema/mule/db"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd 
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
+http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd">
+
+    <!-- Configuration des propriétés -->
+    <configuration-properties doc:name="Configuration properties" doc:id="9e22d9cf-3526-418c-a046-d38e94faeea4" file="configs\dev.yaml" />
+
+    <!-- Configuration HTTP Global -->
+
+    <!-- Configuration HTTP Request Globaux -->
+    <http:request-config name="paysAConfig" 
+                        host="${systeme.pays.a.host}" 
+                        port="${systeme.pays.a.port}" 
+                        doc:name="Pays A HTTP Config">
+        <http:request-connection host="${systeme.paysA.host}" port="${systeme.paysA.port}">
+            <http:authentication >
+				<http:basic-authentication username="admin" password="admin" />
+			</http:authentication>
+			<http:request-authentication>
+                <http:basic-authentication username="admin" password="admin"/>
+            </http:request-authentication>
+        </http:request-connection>
+    </http:request-config>
+
+    <http:request-config name="paysBConfig" 
+                        host="${systeme.pays.b.host}" 
+                        port="${systeme.pays.b.port}" 
+                        doc:name="Pays B HTTP Config">
+		<http:request-connection host="${systeme.paysB.host}" port="${systeme.paysB.port}" >
+		</http:request-connection>
+	</http:request-config>
+
+    <http:request-config name="commissionConfig" 
+                        host="${commission.uemoa.host}" 
+                        port="${commission.uemoa.port}" 
+                        doc:name="Commission UEMOA HTTP Config">
+		<http:request-connection host="${commission.uemoa.host}" port="${commission.uemoa.port}" />
+	</http:request-config>
+
+    <!-- Configuration Base de Données -->
+    <db:config name="dbConfig" doc:name="Database Config">
+        <db:generic-connection driverClassName="${db.driver}"
+                              url="${db.url}"
+                              user="${db.user}" password="${db.password}"/>
+    </db:config>
+
+    <!-- Configuration JMS pour messaging asynchrone -->
+    <jms:config name="jmsConfig" doc:name="JMS Config">
+        <jms:active-mq-connection>
+            <jms:factory-configuration brokerUrl="vm://localhost"/>
+        </jms:active-mq-connection>
+    </jms:config>
+	<apikit:config outboundHeadersMapName="outboundHeadersMapName" httpStatusVarName="httpStatus" doc:name="Router" doc:id="b35ea442-074d-43d7-8f17-f38d2be63c75" name="kitinterconnexionuemoa-config" api="kitinterconnexionuemoa.raml" />
+	<http:listener-config name="kitinterconnexionuemoa-httpListenerConfig" doc:name="HTTP Listener config" doc:id="5f83a536-86a5-4e1d-ac59-79aa0d5e410d" >
+		<http:listener-connection host="${http.host}" port="${http.port}" />
+	</http:listener-config>
+	<db:config name="interconnexionDbConfig" doc:name="Database Config" doc:id="0890fff8-6588-4090-b872-4cdafb8a3fbc" >
+		<db:generic-connection url="${db.url_interco}" driverClassName="${db.driver}" user="${db.user}" />
+	</db:config>
+</mule>

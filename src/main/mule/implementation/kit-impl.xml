@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:db="http://www.mulesoft.org/schema/mule/db"
+      xmlns:json="http://www.mulesoft.org/schema/mule/json"
+      xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw"
+      xmlns:vm="http://www.mulesoft.org/schema/mule/vm"
+      xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+        http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+        http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+        http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+        http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- Configuration HTTP Listener pour le Kit d'Interconnexion -->
+
+    <!-- Configuration HTTP Request pour Systèmes Externes -->
+
+    <!-- Configuration Base de Données Kit -->
+    <db:config name="interconnexion-db-config" doc:name="Database Config">
+        <db:generic-connection driverClassName="org.h2.Driver"
+                              url="jdbc:h2:mem:interconnexion;DB_CLOSE_DELAY=-1"
+                              user="sa"
+                              password=""/>
+    </db:config>
+
+    <!-- FLOW 1: Réception Manifeste depuis Pays A -->
+    <flow name="receive-manifeste-from-pays-a" doc:name="receive-manifeste-from-pays-a">
+        <http:listener path="/api/v1/manifeste/transmission" 
+                      allowedMethods="POST"
+                      doc:name="HTTP Listener - Réception Manifeste" config-ref="kitinterconnexionuemoa-httpListenerConfig"/>
+        
+        <!-- Validation et transformation des données -->
+
+        <!-- Enregistrement dans base de données locale -->
+        <ee:transform doc:name="Validate and Transform Manifeste" doc:id="2a8b0271-35cd-415d-a8da-912c09a4451c" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    numeroManifeste: payload.numeroManifeste,
+    transporteur: payload.transporteur,
+    portEmbarquement: payload.portEmbarquement,
+    portDebarquement: payload.portDebarquement,
+    dateArrivee: payload.dateArrivee,
+    marchandises: payload.marchandises map ((item, index) -> {
+        codeSH: item.codeSH,
+        designation: item.designation,
+        poidsBrut: item.poidsBrut,
+        nombreColis: item.nombreColis,
+        destinataire: item.destinataire,
+        paysDestination: item.paysDestination
+    }),
+    dateReception: now(),
+    statut: "RECU"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<db:insert config-ref="interconnexion-db-config" doc:name="Store Manifeste">
+            <db:sql><![CDATA[INSERT INTO manifestes_recus 
+                (numero_manifeste, transporteur, port_embarquement, port_debarquement, 
+                 date_arrivee, pays_destination, data_json, date_reception, statut) 
+                VALUES 
+                (:numeroManifeste, :transporteur, :portEmbarquement, :portDebarquement, 
+                 :dateArrivee, :paysDestination, :dataJson, :dateReception, :statut)]]></db:sql>
+            <db:input-parameters><![CDATA[#[{
+                numeroManifeste: payload.numeroManifeste,
+                transporteur: payload.transporteur,
+                portEmbarquement: payload.portEmbarquement,
+                portDebarquement: payload.portDebarquement,
+                dateArrivee: payload.dateArrivee,
+                paysDestination: payload.marchandises[0].paysDestination,
+                dataJson: write(payload, "application/json"),
+                dateReception: payload.dateReception,
+                statut: payload.statut
+            }]]]></db:input-parameters>
+        </db:insert>
+
+        <!-- Routage vers pays de destination -->
+        <flow-ref name="route-to-destination-country" doc:name="Route to Destination Country"/>
+
+        <!-- Notification à la Commission UEMOA -->
+        <flow-ref name="notify-commission-uemoa" doc:name="Notify Commission UEMOA"/>
+
+        <!-- Réponse de succès -->
+        <ee:transform doc:name="Success Response" doc:id="e7345de3-7f78-497b-9660-75c573cd5247" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    status: "SUCCESS",
+    message: "Manifeste transmis avec succès",
+    numeroManifeste: payload.numeroManifeste,
+    timestamp: now()
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+        
+        <set-variable value="#[200]" doc:name="Set Success Status" doc:id="829ec173-5ed9-4847-8230-d79c8dd53d0d" variableName="http.status"/>
+    </flow>
+
+    <!-- FLOW 2: Routage vers Pays de Destination -->
+    <flow name="route-to-destination-country" doc:name="route-to-destination-country">
+        <logger level="INFO" message="Routage vers pays destination: #[payload.marchandises[0].paysDestination]" 
+                doc:name="Log Routing"/>
+
+        <!-- Transformation pour système destination -->
+
+        <!-- Envoi vers système pays destination -->
+        <ee:transform doc:name="Transform for Destination System" doc:id="14853548-ac2f-413f-bcbf-bab42f88e2c8" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    manifeste: {
+        numeroOrigine: payload.numeroManifeste,
+        transporteur: payload.transporteur,
+        portOrigine: payload.portEmbarquement,
+        dateArrivee: payload.dateArrivee,
+        paysOrigine: "CIV" // Exemple Côte d'Ivoire
+    },
+    marchandises: payload.marchandises map ((item, index) -> {
+        position: index + 1,
+        codeTarifaire: item.codeSH,
+        description: item.designation,
+        poidsNet: item.poidsBrut,
+        quantite: item.nombreColis,
+        importateur: item.destinataire,
+        valeurEstimee: 0 // À compléter par déclarant
+    })
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<http:request config-ref="paysBConfig" 
+                     path="/api/v1/manifeste/reception" 
+                     method="POST"
+                     doc:name="Send to Destination Country">
+            <http:request-builder>
+                <http:header headerName="Content-Type" value="application/json"/>
+                <http:header headerName="X-Source-Country" value="CIV"/>
+                <http:header headerName="X-Correlation-ID" value="#[correlationId]"/>
+            </http:request-builder>
+        </http:request>
+
+        <logger level="INFO" message="Manifeste envoyé avec succès vers pays destination" 
+                doc:name="Log Success"/>
+    </flow>
+
+    <!-- FLOW 3: Notification Commission UEMOA -->
+    <flow name="notify-commission-uemoa" doc:name="notify-commission-uemoa">
+        <async doc:name="Async Commission Notification">
+
+            <ee:transform doc:name="Transform for Commission" doc:id="0ba794b1-4959-41ec-8d58-4ff4bcc70968" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    typeOperation: "TRANSMISSION_MANIFESTE",
+    numeroOperation: payload.numeroManifeste ++ "-" ++ now() as String {format: "yyyyMMddHHmmss"},
+    paysOrigine: "CIV",
+    paysDestination: payload.marchandises[0].paysDestination,
+    donneesMetier: {
+        numeroManifeste: payload.numeroManifeste,
+        transporteur: payload.transporteur,
+        nombreMarchandises: sizeOf(payload.marchandises),
+        valeurTotaleEstimee: sum(payload.marchandises.poidsBrut) * 100 // Estimation simplifiée
+    },
+    horodatage: now(),
+    source: "KIT_INTERCONNEXION"
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<http:request path="/api/v1/tracabilite/enregistrer" 
+                         method="POST"
+                         doc:name="Send to Commission" config-ref="commissionConfig">
+                <http:request-builder>
+                    <http:header headerName="Content-Type" value="application/json"/>
+                    <http:header headerName="Authorization" value="Bearer COMMISSION_TOKEN"/>
+                </http:request-builder>
+            </http:request>
+        </async>
+    </flow>
+
+    <!-- FLOW 4: Réception Notification Paiement depuis Pays B -->
+    <flow name="receive-payment-notification" doc:name="receive-payment-notification">
+        <http:listener path="/api/v1/paiement/notification" 
+                      allowedMethods="POST"
+                      doc:name="HTTP Listener - Notification Paiement" config-ref="kitinterconnexionuemoa-httpListenerConfig"/>
+
+        <!-- Validation de la notification de paiement -->
+
+        <!-- Enregistrement du paiement -->
+        <ee:transform doc:name="Validate Payment Notification" doc:id="8ee4728a-ae2d-4e46-a301-95234294387a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    numeroDeclaration: payload.numeroDeclaration,
+    manifesteOrigine: payload.manifesteOrigine,
+    montantPaye: payload.montantPaye,
+    referencePaiement: payload.referencePaiement,
+    datePaiement: payload.datePaiement,
+    paysDeclarant: payload.paysDeclarant,
+    statut: "PAIEMENT_CONFIRME"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<db:insert config-ref="interconnexion-db-config" doc:name="Store Payment">
+            <db:sql><![CDATA[INSERT INTO paiements_recus 
+                (numero_declaration, manifeste_origine, montant_paye, reference_paiement, 
+                 date_paiement, pays_declarant, date_reception, statut) 
+                VALUES 
+                (:numeroDeclaration, :manifesteOrigine, :montantPaye, :referencePaiement, 
+                 :datePaiement, :paysDeclarant, :dateReception, :statut)]]></db:sql>
+            <db:input-parameters><![CDATA[#[{
+                numeroDeclaration: payload.numeroDeclaration,
+                manifesteOrigine: payload.manifesteOrigine,
+                montantPaye: payload.montantPaye,
+                referencePaiement: payload.referencePaiement,
+                datePaiement: payload.datePaiement,
+                paysDeclarant: payload.paysDeclarant,
+                dateReception: now(),
+                statut: payload.statut
+            }]]]></db:input-parameters>
+        </db:insert>
+
+        <!-- Autoriser mainlevée vers pays d'origine -->
+        <flow-ref name="authorize-release-to-origin" doc:name="Authorize Release to Origin"/>
+
+        <!-- Réponse de succès -->
+		<ee:transform doc:name="Payment Confirmation Response" doc:id="b0650a9a-642b-4ecb-ada2-697f75b1acaa" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    status: "SUCCESS",
+    message: "Paiement confirmé, mainlevée autorisée",
+    numeroDeclaration: payload.numeroDeclaration,
+    timestamp: now()
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+    
+</flow>
+
+    <!-- FLOW 5: Autorisation Mainlevée vers Pays d'Origine -->
+    <flow name="authorize-release-to-origin" doc:name="authorize-release-to-origin">
+        <logger level="INFO" message="Autorisation mainlevée pour: #[payload.manifesteOrigine]" 
+                doc:name="Log Release Authorization"/>
+
+        <!-- Transformation pour autorisation mainlevée -->
+
+        <!-- Envoi vers système pays d'origine -->
+        <ee:transform doc:name="Transform Release Authorization" doc:id="3c159df0-614c-479d-8ce2-b550d76fc183" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    autorisationMainlevee: {
+        numeroManifeste: payload.manifesteOrigine,
+        numeroDeclaration: payload.numeroDeclaration,
+        montantAcquitte: payload.montantPaye,
+        paysDeclarant: payload.paysDeclarant,
+        dateAutorisation: now(),
+        referenceAutorisation: "AUTH-" ++ payload.numeroDeclaration ++ "-" ++ (now() as String {format: "yyyyMMddHHmmss"}),
+        statut: "AUTORISE"
+    }
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<http:request config-ref="paysAConfig" 
+                     path="/api/v1/mainlevee/autorisation" 
+                     method="POST"
+                     doc:name="Send Release Authorization">
+            <http:request-builder>
+                <http:header headerName="Content-Type" value="application/json"/>
+                <http:header headerName="X-Authorization-Source" value="KIT_INTERCONNEXION"/>
+                <http:header headerName="X-Correlation-ID" value="#[correlationId]"/>
+            </http:request-builder>
+        </http:request>
+
+        <logger level="INFO" message="Autorisation mainlevée envoyée avec succès" 
+                doc:name="Log Release Success"/>
+    </flow>
+
+    <!-- FLOW 6: API de Santé et Status -->
+    <flow name="health-check" doc:name="health-check">
+        <http:listener path="/api/v1/health" 
+                      allowedMethods="GET"
+                      doc:name="HTTP Listener - Health Check" config-ref="kitinterconnexionuemoa-httpListenerConfig"/>
+		<ee:transform doc:name="Health Status Response" doc:id="00aff913-c416-49c2-af19-6d8a483ec9bb" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    service: "Kit Interconnexion UEMOA",
+    status: "UP",
+    version: "1.0.0-POC",
+    timestamp: now(),
+    endpoints: {
+        manifesteReception: "/api/v1/manifeste/transmission",
+        paiementNotification: "/api/v1/paiement/notification",
+        healthCheck: "/api/v1/health"
+    }
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+    
+</flow>
+
+    <!-- Gestion d'erreurs globale -->
+    <error-handler name="global-error-handler">
+        <on-error-continue enableNotifications="true" logException="true" 
+                          doc:name="On Error Continue">
+            <ee:transform doc:name="Error Response" doc:id="d8433c0d-fb54-49fb-9bb8-e2dd239a578f" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    status: "ERROR",
+    message: "Erreur lors du traitement",
+    error: error.description default "Erreur inconnue",
+    timestamp: now()
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<set-variable value="#[500]" doc:name="Set Error Status" doc:id="cd67a37d-f116-4b0e-895c-732bc349678f" variableName="http.status"/>
+        
+</on-error-continue>
+    </error-handler>
+
+</mule>

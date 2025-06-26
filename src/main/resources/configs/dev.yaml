@@ -1,0 +1,40 @@
+# Configuration HTTP
+http:
+  port: "8080"
+  host: "0.0.0.0"
+
+# Configuration Systèmes Externes
+systeme:
+  paysA:
+    host: "localhost"
+    port: "8081"
+  paysB:
+    host: "localhost"
+    port: "8082"
+commission:
+  uemoa:
+    host: "localhost"
+    port: "8083"
+
+### database config ####
+db:
+  driver: "org.h2.Driver"
+  url_interco: "jdbc:h2:mem:interconnexion;DB_CLOSE_DELAY=-1"
+  user: "sa"
+  password: ""
+  
+  
+# Configuration Sécurité
+api:
+  key:
+    commission: "COMMISSION_SECRET_KEY"
+oauth:
+  client:
+    id: "interconnexion_client"
+    secret: "interconnexion_secret"
+
+# Configuration Monitoring
+monitoring:
+  enabled: "true"
+logging:
+  level: "INFO"

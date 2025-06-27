@@ -1,18 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<mule xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
-	xmlns:jms="http://www.mulesoft.org/schema/mule/jms"
+<mule xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway"
+	xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+      xmlns:jms="http://www.mulesoft.org/schema/mule/jms"
       xmlns:context="http://www.springframework.org/schema/context"
       xmlns:db="http://www.mulesoft.org/schema/mule/db"
       xmlns:http="http://www.mulesoft.org/schema/mule/http"
       xmlns="http://www.mulesoft.org/schema/mule/core"
-      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
 http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd 
         http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
         http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
         http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
         http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
-http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd">
+http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd
+http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd">
 
     <!-- Configuration des propriétés -->
     <configuration-properties doc:name="Configuration properties" doc:id="9e22d9cf-3526-418c-a046-d38e94faeea4" file="configs\dev.yaml" />
@@ -49,4 +50,5 @@ http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/m
 	<http:request-config name="commissionConfig" doc:name="HTTP Request configuration" doc:id="2dc27b16-712d-45d4-b8f9-df911cbee64d" >
 		<http:request-connection host="${commission.uemoa.host}" port="${commission.uemoa.port}" />
 	</http:request-config>
+	<api-gateway:autodiscovery apiId="20414799" ignoreBasePath="true" doc:name="API Autodiscovery" doc:id="ca8c5384-cdf0-4dd5-bd85-83d919e28aad" flowRef="kitinterconnexionuemoa-main" />
 </mule>

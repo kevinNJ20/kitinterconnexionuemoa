@@ -120,19 +120,7 @@ output application/json
         </error-handler>
     </flow>
     <flow name="get:\health:kitinterconnexionuemoa-config">
-        <ee:transform doc:name="Transform Message">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-  service: "Kit Interconnexion UEMOA",
-  status: "UP",
-  version: "1.0.0-POC",
-  timestamp: "2025-01-15T10:00:00Z"
-} as Object {encoding: "UTF-8", mediaType: "application/json"}]]></ee:set-payload>
-            </ee:message>
-        </ee:transform>
+		<flow-ref doc:name="to health-check" doc:id="e6d0e4f2-9426-427d-9067-3808c9b0ada2" name="health-check"/>
     </flow>
     <flow name="post:\paiement\notification:application\json:kitinterconnexionuemoa-config">
         <ee:transform doc:name="Transform Message">

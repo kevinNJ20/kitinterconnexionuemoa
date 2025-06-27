@@ -23,12 +23,6 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
     <!-- Configuration HTTP Request pour Systèmes Externes -->
 
     <!-- Configuration Base de Données Kit -->
-    <db:config name="interconnexion-db-config" doc:name="Database Config">
-        <db:generic-connection driverClassName="org.h2.Driver"
-                              url="jdbc:h2:mem:interconnexion;DB_CLOSE_DELAY=-1"
-                              user="sa"
-                              password=""/>
-    </db:config>
 
     <!-- FLOW 1: Réception Manifeste depuis Pays A -->
     <flow name="receive-manifeste-from-pays-a" doc:name="receive-manifeste-from-pays-a">
@@ -63,7 +57,7 @@ output application/json
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-		<db:insert config-ref="interconnexion-db-config" doc:name="Store Manifeste">
+		<db:insert doc:name="Store Manifeste" config-ref="interconnexionDbConfig">
             <db:sql><![CDATA[INSERT INTO manifestes_recus 
                 (numero_manifeste, transporteur, port_embarquement, port_debarquement, 
                  date_arrivee, pays_destination, data_json, date_reception, statut) 
@@ -140,16 +134,15 @@ output application/json
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-		<http:request config-ref="paysBConfig" 
-                     path="/api/v1/manifeste/reception" 
-                     method="POST"
-                     doc:name="Send to Destination Country">
-            <http:request-builder>
-                <http:header headerName="Content-Type" value="application/json"/>
-                <http:header headerName="X-Source-Country" value="CIV"/>
-                <http:header headerName="X-Correlation-ID" value="#[correlationId]"/>
-            </http:request-builder>
-        </http:request>
+		<http:request method="POST" doc:name="Send to Destination Country" doc:id="23ca1e61-4f33-4b98-88a0-88a8d0ada690" path="/api/v1/manifeste/reception" config-ref="paysBConfig">
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"X-Source-Country" : "CIV",
+	"X-Correlation-ID" : "Value",
+	"Content-Type" : "#[correlationId]"
+}]]]></http:headers>
+		</http:request>
 
         <logger level="INFO" message="Manifeste envoyé avec succès vers pays destination" 
                 doc:name="Log Success"/>
@@ -180,14 +173,14 @@ output application/json
 }]]></ee:set-payload>
 				</ee:message>
 			</ee:transform>
-			<http:request path="/api/v1/tracabilite/enregistrer" 
-                         method="POST"
-                         doc:name="Send to Commission" config-ref="commissionConfig">
-                <http:request-builder>
-                    <http:header headerName="Content-Type" value="application/json"/>
-                    <http:header headerName="Authorization" value="Bearer COMMISSION_TOKEN"/>
-                </http:request-builder>
-            </http:request>
+			<http:request method="POST" doc:name="Send to Commission" doc:id="3b02c48c-0287-498e-8518-d4cf01d1c07e" path="/api/v1/tracabilite/enregistrer" config-ref="commissionConfig">
+				<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Authorization" : "Bearer COMMISSION_TOKEN",
+	"Content-Type" : "application/json"
+}]]]></http:headers>
+			</http:request>
         </async>
     </flow>
 
@@ -216,7 +209,7 @@ output application/json
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-		<db:insert config-ref="interconnexion-db-config" doc:name="Store Payment">
+		<db:insert doc:name="Store Payment" config-ref="interconnexionDbConfig">
             <db:sql><![CDATA[INSERT INTO paiements_recus 
                 (numero_declaration, manifeste_origine, montant_paye, reference_paiement, 
                  date_paiement, pays_declarant, date_reception, statut) 
@@ -281,16 +274,15 @@ output application/json
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-		<http:request config-ref="paysAConfig" 
-                     path="/api/v1/mainlevee/autorisation" 
-                     method="POST"
-                     doc:name="Send Release Authorization">
-            <http:request-builder>
-                <http:header headerName="Content-Type" value="application/json"/>
-                <http:header headerName="X-Authorization-Source" value="KIT_INTERCONNEXION"/>
-                <http:header headerName="X-Correlation-ID" value="#[correlationId]"/>
-            </http:request-builder>
-        </http:request>
+		<http:request method="POST" doc:name="Send Release Authorization" doc:id="7538dbe1-e695-47e8-8497-2b3a351a2b88" path="/api/v1/mainlevee/autorisation" config-ref="paysAConfig">
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"X-Correlation-ID" : "#[correlationId]",
+	"Content-Type" : "application/json",
+	"X-Authorization-Source" : "KIT_INTERCONNEXION"
+}]]]></http:headers>
+		</http:request>
 
         <logger level="INFO" message="Autorisation mainlevée envoyée avec succès" 
                 doc:name="Log Release Success"/>

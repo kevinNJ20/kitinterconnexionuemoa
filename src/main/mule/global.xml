@@ -20,41 +20,8 @@ http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/m
     <!-- Configuration HTTP Global -->
 
     <!-- Configuration HTTP Request Globaux -->
-    <http:request-config name="paysAConfig" 
-                        host="${systeme.pays.a.host}" 
-                        port="${systeme.pays.a.port}" 
-                        doc:name="Pays A HTTP Config">
-        <http:request-connection host="${systeme.paysA.host}" port="${systeme.paysA.port}">
-            <http:authentication >
-				<http:basic-authentication username="admin" password="admin" />
-			</http:authentication>
-			<http:request-authentication>
-                <http:basic-authentication username="admin" password="admin"/>
-            </http:request-authentication>
-        </http:request-connection>
-    </http:request-config>
-
-    <http:request-config name="paysBConfig" 
-                        host="${systeme.pays.b.host}" 
-                        port="${systeme.pays.b.port}" 
-                        doc:name="Pays B HTTP Config">
-		<http:request-connection host="${systeme.paysB.host}" port="${systeme.paysB.port}" >
-		</http:request-connection>
-	</http:request-config>
-
-    <http:request-config name="commissionConfig" 
-                        host="${commission.uemoa.host}" 
-                        port="${commission.uemoa.port}" 
-                        doc:name="Commission UEMOA HTTP Config">
-		<http:request-connection host="${commission.uemoa.host}" port="${commission.uemoa.port}" />
-	</http:request-config>
 
     <!-- Configuration Base de Données -->
-    <db:config name="dbConfig" doc:name="Database Config">
-        <db:generic-connection driverClassName="${db.driver}"
-                              url="${db.url}"
-                              user="${db.user}" password="${db.password}"/>
-    </db:config>
 
     <!-- Configuration JMS pour messaging asynchrone -->
     <jms:config name="jmsConfig" doc:name="JMS Config">
@@ -69,4 +36,17 @@ http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/m
 	<db:config name="interconnexionDbConfig" doc:name="Database Config" doc:id="0890fff8-6588-4090-b872-4cdafb8a3fbc" >
 		<db:generic-connection url="${db.url_interco}" driverClassName="${db.driver}" user="${db.user}" />
 	</db:config>
+	<http:request-config name="paysAConfig" doc:name="HTTP Request configuration" doc:id="be89c382-9c50-474c-a716-3e739999a34b" >
+		<http:request-connection host="${systeme.paysA.host}" port="${systeme.paysA.port}" >
+			<http:authentication >
+				<http:basic-authentication username="admin" password="admin" />
+			</http:authentication>
+		</http:request-connection>
+	</http:request-config>
+	<http:request-config name="paysBConfig" doc:name="HTTP Request configuration" doc:id="aaaaacb9-5f01-44cf-af52-0c01439ad559" >
+		<http:request-connection host="${systeme.paysB.host}" port="${systeme.paysB.port}" />
+	</http:request-config>
+	<http:request-config name="commissionConfig" doc:name="HTTP Request configuration" doc:id="2dc27b16-712d-45d4-b8f9-df911cbee64d" >
+		<http:request-connection host="${commission.uemoa.host}" port="${commission.uemoa.port}" />
+	</http:request-config>
 </mule>

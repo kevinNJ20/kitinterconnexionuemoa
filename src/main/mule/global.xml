@@ -51,7 +51,6 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 	<http:request-config name="commissionConfig" doc:name="HTTP Request configuration" doc:id="2dc27b16-712d-45d4-b8f9-df911cbee64d" >
 		<http:request-connection host="${commission.uemoa.host}" port="${commission.uemoa.port}" />
 	</http:request-config>
-	<api-gateway:autodiscovery apiId="20414799" ignoreBasePath="true" doc:name="API Autodiscovery" doc:id="ca8c5384-cdf0-4dd5-bd85-83d919e28aad" flowRef="kitinterconnexionuemoa-main" />
 	<error-handler name="global-error-handler" doc:id="8990d707-83f9-480b-b306-d4b72c342ccd" >
 		<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="fbbd1c8c-6f4b-49eb-84c9-34d631392e8c" >
 			<ee:transform doc:name="Error Response" doc:id="0b8988f9-7334-45df-b590-e97505e0c213" >

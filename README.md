@@ -333,4 +333,4 @@ Ce projet est développé dans le cadre de l'interconnexion des systèmes douani
 
 **Version** : 1.0.0-SNAPSHOT  
 **Runtime** : Mule 4.9.2  
-**Dernière mise à jour** : Janvier 2025
+**Dernière mise à jour** : Juin 2025

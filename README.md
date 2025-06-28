@@ -155,19 +155,58 @@ Une console interactive est disponible à l'adresse :
 
 Retourne l'état du service et ses informations de version.
 
+## Endpoints Commission UEMOA
+
+### Endpoint de traçabilité
+
+**POST** `/api/v1/tracabilite/enregistrer`
+
+Cet endpoint est utilisé en interne par le kit pour notifier la Commission UEMOA de manière asynchrone lors de la transmission de manifestes. Il n'est pas exposé publiquement mais constitue un point d'intégration crucial avec le système de la Commission.
+
+**Structure des données envoyées :**
+
+```json
+{
+  "typeOperation": "TRANSMISSION_MANIFESTE",
+  "numeroOperation": "MAN2025001-20250115143000",
+  "paysOrigine": "CIV",
+  "paysDestination": "BFA",
+  "donneesMetier": {
+    "numeroManifeste": "MAN2025001",
+    "transporteur": "MAERSK LINE",
+    "nombreMarchandises": 1,
+    "valeurTotaleEstimee": 150000
+  },
+  "horodatage": "2025-01-15T14:30:00Z",
+  "source": "KIT_INTERCONNEXION"
+}
+```
+
+**Headers requis :**
+```
+Authorization: Bearer COMMISSION_TOKEN
+Content-Type: application/json
+```
+
 ## Flux métier
 
 ### 1. Réception manifeste (Pays A → Kit)
 - Validation des données du manifeste
 - Stockage en base de données
 - Routage vers le pays de destination
-- Notification asynchrone de la Commission UEMOA
+- **Notification asynchrone de la Commission UEMOA via `/tracabilite/enregistrer`**
 
 ### 2. Notification paiement (Pays B → Kit)
 - Validation de la notification de paiement
 - Stockage de la confirmation
 - Génération d'autorisation de mainlevée
 - Envoi de l'autorisation au pays d'origine
+
+### 3. Traçabilité Commission UEMOA
+- Enregistrement automatique de toutes les opérations de transmission
+- Génération d'un numéro d'opération unique
+- Envoi asynchrone pour éviter les blocages
+- Audit complet des échanges inter-pays
 
 ## Base de données
 
@@ -204,7 +243,7 @@ Le système enregistre automatiquement :
 ### Authentification
 
 - **Basic Auth** pour les connexions vers les systèmes externes
-- **API Key** pour les communications avec la Commission UEMOA
+- **Bearer Token** pour les communications avec la Commission UEMOA
 - Headers de corrélation pour le traçage des requêtes
 
 ### Headers recommandés
@@ -213,6 +252,17 @@ Le système enregistre automatiquement :
 X-Source-Country: [Code pays 3 lettres]
 X-Correlation-ID: [ID unique de corrélation]
 X-Authorization-Source: KIT_INTERCONNEXION
+```
+
+### Configuration Commission UEMOA
+
+Le système utilise un token Bearer pour s'authentifier auprès de la Commission UEMOA :
+
+```yaml
+# Dans dev.yaml
+api:
+  key:
+    commission: "COMMISSION_SECRET_KEY"
 ```
 
 ## Développement
@@ -259,6 +309,14 @@ mvn clean package deploy -DmuleDeploy
 - **200** : Succès
 - **400** : Erreur de validation des données
 - **500** : Erreur interne du système
+
+### Intégration Commission UEMOA
+
+En cas de problème avec l'intégration Commission UEMOA :
+- Vérifier la configuration du token dans `dev.yaml`
+- Contrôler la connectivité réseau vers `${commission.uemoa.host}:${commission.uemoa.port}`
+- Consulter les logs pour les erreurs d'envoi asynchrone
+- Les échecs de notification Commission n'interrompent pas le flux principal
 
 ### Contact technique
 

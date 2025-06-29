@@ -40,6 +40,15 @@ types:
       datePaiement: datetime
       paysDeclarant: string
 
+  OperationTracabilite:
+    type: object
+    properties:
+      typeOperation: string
+      numeroOperation: string
+      paysOrigine: string
+      paysDestination: string
+      donneesMetier: object
+
 /manifeste:
   /transmission:
     post:
@@ -103,6 +112,38 @@ types:
                   "message": "Paiement confirmé, mainlevée autorisée",
                   "numeroDeclaration": "DEC2025001",
                   "timestamp": "2025-01-15T14:35:00Z"
+                }
+
+/tracabilite:
+  /enregistrer:
+    post:
+      description: Enregistrement d'opération de traçabilité (Commission UEMOA)
+      body:
+        application/json:
+          type: OperationTracabilite
+          example: |
+            {
+              "typeOperation": "TRANSMISSION_MANIFESTE",
+              "numeroOperation": "MAN2025001-20250115103000",
+              "paysOrigine": "CIV",
+              "paysDestination": "BFA",
+              "donneesMetier": {
+                "numeroManifeste": "MAN2025001",
+                "transporteur": "MAERSK LINE",
+                "nombreMarchandises": 2,
+                "valeurTotaleEstimee": 400000
+              }
+            }
+      responses:
+        200:
+          body:
+            application/json:
+              example: |
+                {
+                  "status": "RECORDED",
+                  "message": "Opération enregistrée avec succès",
+                  "numeroOperation": "MAN2025001-20250115103000",
+                  "timestamp": "2025-01-15T10:30:00Z"
                 }
 
 /health:

@@ -249,6 +249,71 @@ output application/json
 		</http:request>
 		<logger level="INFO" message="Autorisation mainlevée envoyée avec succès" doc:name="Log Release Success" />
 	</sub-flow>
+	<!-- Nouveau sub-flow pour la traçabilité Commission UEMOA -->
+	<sub-flow name="record-commission-trace" doc:id="1da65dc5-8b72-49e9-89c9-a9b7a8a0686b">
+	    <logger level="INFO" message="📊 Réception traçabilité Commission UEMOA: #[payload.numeroOperation]" doc:name="Log Commission Trace" />
+	    
+	    <ee:transform doc:name="Validate Commission Trace" doc:id="d7345025-0170-4c18-a1dd-632767576277">
+	        <ee:message>
+	            <ee:set-payload><![CDATA[%dw 2.0
+	output application/json
+	---
+	{
+	    typeOperation: payload.typeOperation,
+	    numeroOperation: payload.numeroOperation,
+	    paysOrigine: payload.paysOrigine,
+	    paysDestination: payload.paysDestination,
+	    donneesMetier: payload.donneesMetier,
+	    dateEnregistrement: now(),
+	    statut: "TRACE_RECUE",
+	    source: "COMMISSION_UEMOA"
+	}]]></ee:set-payload>
+	        </ee:message>
+	    </ee:transform>
+	    
+	    <!-- Stockage en base de données -->
+	    <db:insert doc:name="Store Commission Trace" config-ref="interconnexionDbConfig">
+	        <db:sql><![CDATA[INSERT INTO tracabilite_echanges 
+	            (type_operation, pays_source, pays_destination, reference_operation, 
+	             payload_entrant, statut_traitement, date_debut) 
+	            VALUES 
+	            (:typeOperation, :paysOrigine, :paysDestination, :numeroOperation, 
+	             :payloadEntrant, :statutTraitement, :dateDebut)]]></db:sql>
+	        <db:input-parameters><![CDATA[#[{
+	            typeOperation: payload.typeOperation,
+	            paysOrigine: payload.paysOrigine,
+	            paysDestination: payload.paysDestination,
+	            numeroOperation: payload.numeroOperation,
+	            payloadEntrant: write(payload, "application/json"),
+	            statutTraitement: "ENREGISTRE",
+	            dateDebut: payload.dateEnregistrement
+	        }]]]></db:input-parameters>
+	    </db:insert>
+	    
+	    <!-- Réponse de confirmation -->
+	    <ee:transform doc:name="Commission Trace Response" doc:id="9975dfc0-7d64-4405-899c-6c2dfd95d64f">
+	        <ee:message>
+	            <ee:set-payload><![CDATA[%dw 2.0
+	output application/json
+	---
+	{
+	    status: "RECORDED",
+	    message: "Opération de traçabilité enregistrée avec succès",
+	    numeroOperation: payload.numeroOperation,
+	    typeOperation: payload.typeOperation,
+	    timestamp: payload.dateEnregistrement,
+	    commission: {
+	        statut: "ACQUITTE",
+	        horodatage: now()
+	    }
+	}]]></ee:set-payload>
+	        </ee:message>
+	    </ee:transform>
+	    
+	    <set-variable value="#[200]" doc:name="Set Success Status" doc:id="6faa0709-fec2-4b4d-9cef-1ef616a4580a" variableName="http.status" />
+	    
+	    <logger level="INFO" message="✅ Traçabilité Commission enregistrée: #[payload.numeroOperation]" doc:name="Log Success" />
+	</sub-flow>
 	<sub-flow name="health-check" doc:id="772118a7-a161-4028-b397-4329f887c22a" >
 		<ee:transform doc:name="Health Status Response" doc:id="00aff913-c416-49c2-af19-6d8a483ec9bb">
 			<ee:message>

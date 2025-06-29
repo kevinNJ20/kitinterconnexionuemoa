@@ -1,0 +1,9 @@
+%dw 2.0
+
+type auto_d3372bcc_45d7_49f0_a007_7824a94bff7f_Output_Variables_corsHeaders = {|
+  "Access-Control-Allow-Origin": String, 
+  "Access-Control-Allow-Methods": String, 
+  "Access-Control-Allow-Headers": String, 
+  "Access-Control-Max-Age": String
+|}
+

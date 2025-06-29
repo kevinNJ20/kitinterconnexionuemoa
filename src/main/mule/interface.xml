@@ -10,10 +10,20 @@
                 <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
             </http:error-response>
         </http:listener>
-        <apikit:router config-ref="kitinterconnexionuemoa-config"/>
+		<flow-ref doc:name="to cors-headers" doc:id="de5cf4b4-b4ff-45c2-bc86-1225c85a35ad" name="cors-headers"/>
+		<apikit:router config-ref="kitinterconnexionuemoa-config" />
+		<!-- [STUDIO:"Handle CORS Preflight"]<choice doc:name="Handle CORS Preflight" doc:id="6fa231fb-4bbf-442e-bcd6-c1674c734d50" >
+			<when expression="#[attributes.method == 'OPTIONS'&#93;">
+				<set-payload value="#[payload&#93;" doc:name="Empty Response" doc:id="b3adbb30-ab34-47f5-a10f-49a75ff1a151" />
+				<set-variable value="#[200&#93;" doc:name="Set Variable" doc:id="297991eb-2ad5-4b79-9590-ef1a15bb3ae7" variableName="httpStatus"/>
+			</when>
+		</choice> [STUDIO] -->
 		<error-handler ref="global-error-handler" />
     </flow>
-    <flow name="kitinterconnexionuemoa-console">
+    <sub-flow name="cors-headers" doc:id="d3372bcc-45d7-49f0-a007-7824a94bff7f" >
+		<set-variable value="#[{&#10;        'Access-Control-Allow-Origin': '*',&#10;        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',&#10;        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Source-Country, X-Correlation-ID',&#10;        'Access-Control-Max-Age': '3600'&#10;    }]" doc:name="Set CORS Headers" doc:id="c7f08379-92ac-491c-86c9-19e6368d67b2" variableName="corsHeaders"/>
+	</sub-flow>
+	<flow name="kitinterconnexionuemoa-console">
         <http:listener path="/console/*" config-ref="kitinterconnexionuemoa-httpListenerConfig">
             <http:response statusCode="#[vars.httpStatus default 200]">
                 <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
@@ -34,5 +44,8 @@
     </flow>
     <flow name="post:\manifeste\transmission:application\json:kitinterconnexionuemoa-config">
 		<flow-ref doc:name="to receive-manifeste-from-pays-a" doc:id="c4ac9c42-535b-4d2b-8a07-049d2eb55eb8" name="receive-manifeste-from-pays-a"/>
+    </flow>
+    <flow name="post:\tracabilite\enregistrer:application\json:kitinterconnexionuemoa-config">
+		<flow-ref doc:name="to record-commission-trace" doc:id="96fd8383-128b-47e2-8d2d-70f23df4a7aa" name="record-commission-trace"/>
     </flow>
 </mule>

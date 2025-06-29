@@ -91,43 +91,46 @@ output application/json
 	</sub-flow>
 
     <!-- FLOW 3: Notification Commission UEMOA -->
-    <sub-flow name="route-to-destination-country" doc:id="c461114e-c9f3-4b38-9107-b3ae34c3fc27" >
-		<logger level="INFO" message="Routage vers pays destination: #[vars.incoming.marchandises[0].paysDestination]" doc:name="Log Routing" />
-		<ee:transform doc:name="Transform for Destination System" doc:id="14853548-ac2f-413f-bcbf-bab42f88e2c8">
-			<ee:message>
-				<ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-    manifeste: {
-        numeroOrigine: vars.incoming.numeroManifeste,
-        transporteur: vars.incoming.transporteur,
-        portOrigine: vars.incoming.portEmbarquement,
-        dateArrivee: vars.incoming.dateArrivee,
-        paysOrigine: "CIV" // Exemple Côte d'Ivoire
-    },
-    marchandises: vars.incoming.marchandises map ((item, index) -> {
-        position: index + 1,
-        codeTarifaire: item.codeSH,
-        description: item.designation,
-        poidsNet: item.poidsBrut,
-        quantite: item.nombreColis,
-        importateur: item.destinataire,
-        valeurEstimee: 0 // À compléter par déclarant
-    })
-}]]></ee:set-payload>
-			</ee:message>
-		</ee:transform>
-		<http:request method="POST" doc:name="Send to Destination Country" doc:id="23ca1e61-4f33-4b98-88a0-88a8d0ada690" path="/api/manifeste/reception" config-ref="paysBConfig">
-			<http:headers><![CDATA[#[output application/java
----
-{
-	"X-Source-Country" : "CIV",
-	"X-Correlation-ID" : "Value",
-	"Content-Type" : "#[correlationId]"
+    <sub-flow name="route-to-destination-country" doc:id="34703e7e-3f77-48a4-9ff3-e5464dc84690" >
+	    <logger level="INFO" message="Routage vers pays destination: #[vars.incoming.marchandises[0].paysDestination]" doc:name="Log Routing" />
+	    <ee:transform doc:name="Transform for Destination System" doc:id="6ef118ce-709c-4d26-b168-e53f03f1916c">
+	        <ee:message>
+	            <ee:set-payload><![CDATA[%dw 2.0
+	output application/json
+	---
+	{
+	    manifeste: {
+	        numeroOrigine: vars.incoming.numeroManifeste,
+	        transporteur: vars.incoming.transporteur,
+	        portOrigine: vars.incoming.portEmbarquement,
+	        dateArrivee: vars.incoming.dateArrivee,
+	        paysOrigine: "CIV" // Exemple Côte d'Ivoire
+	    },
+	    marchandises: vars.incoming.marchandises map ((item, index) -> {
+	        position: index + 1,
+	        codeTarifaire: item.codeSH,
+	        description: item.designation,
+	        poidsNet: item.poidsBrut,
+	        quantite: item.nombreColis,
+	        importateur: item.destinataire,
+	        valeurEstimee: 0 // À compléter par déclarant
+	    })
+	}]]></ee:set-payload>
+	        </ee:message>
+	    </ee:transform>
+	    
+	    <!-- CORRECTION: Headers HTTP properly formatted -->
+	    <http:request method="POST" doc:name="Send to Destination Country" doc:id="a43ed103-79a1-4f78-b987-653e45e4e68b" 
+	                  path="/api/manifeste/reception" config-ref="paysBConfig">
+	        <http:headers><![CDATA[#[{
+    "Content-Type": "application/json",
+    "X-Source-Country": "CIV",
+    "X-Source-System": "KIT_INTERCONNEXION", 
+    "X-Correlation-ID": correlationId
 }]]]></http:headers>
-		</http:request>
-		<logger level="INFO" message="Manifeste envoyé avec succès vers pays destination" doc:name="Log Success" />
+	    </http:request>
+	    
+	    <logger level="INFO" message="Manifeste envoyé avec succès vers pays destination" doc:name="Log Success" />
 	</sub-flow>
 	<sub-flow name="notify-commission-uemoa" doc:id="14fca646-b00d-4192-bb8e-10dd2f30b737" >
 		<async doc:name="Async Commission Notification">

@@ -13,14 +13,14 @@ api:
 # Configuration Systèmes Externes
 systeme:
   paysA:
-    host: "https://pays-a-simulator.vercel.app/"
+    host: "pays-a-simulator.vercel.app"
     port: "443"
   paysB:
-    host: "https://pays-b-simulator.vercel.app/"
+    host: "pays-b-simulator.vercel.app"
     port: "443"
 commission:
   uemoa:
-    host: "https://commission-simulator-one.vercel.app/"
+    host: "commission-simulator-one.vercel.app"
     port: "443"
 
 ### database config ####

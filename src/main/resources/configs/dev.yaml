@@ -3,22 +3,25 @@ http:
   port: "8080"
   host: "0.0.0.0"
   
+# Configuration Sécurité  
 api:
   id: "20414799"
   main: "kitinterconnexionuemoa-main"
+  key:
+    commission: "COMMISSION_SECRET_KEY"
 
 # Configuration Systèmes Externes
 systeme:
   paysA:
-    host: "localhost"
-    port: "8081"
+    host: "https://pays-a-simulator.vercel.app/"
+    port: "443"
   paysB:
-    host: "localhost"
-    port: "8082"
+    host: "https://pays-b-simulator.vercel.app/"
+    port: "443"
 commission:
   uemoa:
-    host: "localhost"
-    port: "8083"
+    host: "https://commission-simulator-one.vercel.app/"
+    port: "443"
 
 ### database config ####
 db:
@@ -27,11 +30,6 @@ db:
   user: "sa"
   password: ""
   
-  
-# Configuration Sécurité
-api:
-  key:
-    commission: "COMMISSION_SECRET_KEY"
 oauth:
   client:
     id: "interconnexion_client"

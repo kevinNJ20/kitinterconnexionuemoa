@@ -31,11 +31,11 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
             <jms:factory-configuration brokerUrl="vm://localhost"/>
         </jms:active-mq-connection>
     </jms:config>
-	<apikit:config outboundHeadersMapName="outboundHeadersMapName" httpStatusVarName="httpStatus" doc:name="Router" doc:id="b35ea442-074d-43d7-8f17-f38d2be63c75" name="kitinterconnexionuemoa-config" api="kitinterconnexionuemoa.raml" />
+	<apikit:config outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" doc:name="Router" doc:id="b35ea442-074d-43d7-8f17-f38d2be63c75" name="kitinterconnexionuemoa-config" api="kitinterconnexionuemoa.raml" />
 	<http:listener-config name="kitinterconnexionuemoa-httpListenerConfig" doc:name="HTTP Listener config" doc:id="5f83a536-86a5-4e1d-ac59-79aa0d5e410d" >
 		<http:listener-connection host="${http.host}" port="${http.port}" />
 	</http:listener-config>
-	<db:config name="interconnexionDbConfig" doc:name="Database Config" doc:id="0890fff8-6588-4090-b872-4cdafb8a3fbc" >
+	<db:config name="interconnexionDbConfig-2" doc:name="Database Config" doc:id="0890fff8-6588-4090-b872-4cdafb8a3fbc" >
 		<db:generic-connection url="${db.url_interco}" driverClassName="${db.driver}" user="${db.user}" />
 	</db:config>
 	<http:request-config name="paysAConfig" doc:name="HTTP Request configuration" doc:id="be89c382-9c50-474c-a716-3e739999a34b" >
@@ -51,6 +51,9 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 	<http:request-config name="commissionConfig" doc:name="HTTP Request configuration" doc:id="2dc27b16-712d-45d4-b8f9-df911cbee64d" >
 		<http:request-connection host="${commission.uemoa.host}" port="${commission.uemoa.port}" />
 	</http:request-config>
+	<db:config name="interconnexionDbConfig" doc:name="Database Config" doc:id="0b86a1aa-347b-4300-ab53-ceeeab958822" >
+		<db:mssql-connection host="localhost" port="1433" user="sa" password="UemoaInterconnexion2025!" databaseName="InterconnexionUEMOA" />
+	</db:config>
 	<error-handler name="global-error-handler" doc:id="8990d707-83f9-480b-b306-d4b72c342ccd" >
 		<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="fbbd1c8c-6f4b-49eb-84c9-34d631392e8c" >
 			<ee:transform doc:name="Error Response" doc:id="0b8988f9-7334-45df-b590-e97505e0c213" >

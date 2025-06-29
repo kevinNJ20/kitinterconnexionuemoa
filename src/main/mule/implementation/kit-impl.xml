@@ -28,6 +28,7 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 
     <!-- FLOW 2: Routage vers Pays de Destination -->
     <sub-flow name="receive-manifeste-from-pays-a" doc:id="addc2992-3143-4c93-8fae-995c68812106" >
+		<set-variable value="#[payload]" doc:name="Set incoming" doc:id="95f40ec9-dbc4-48c7-8c1e-259aee89c805" variableName="incoming"/>
 		<ee:transform doc:name="Validate and Transform Manifeste" doc:id="2a8b0271-35cd-415d-a8da-912c09a4451c">
 			<ee:message>
 				<ee:set-payload><![CDATA[%dw 2.0
@@ -81,7 +82,7 @@ output application/json
 {
     status: "SUCCESS",
     message: "Manifeste transmis avec succès",
-    numeroManifeste: payload.numeroManifeste,
+    numeroManifeste: vars.incoming.numeroManifeste,
     timestamp: now()
 }]]></ee:set-payload>
 			</ee:message>
@@ -91,7 +92,7 @@ output application/json
 
     <!-- FLOW 3: Notification Commission UEMOA -->
     <sub-flow name="route-to-destination-country" doc:id="c461114e-c9f3-4b38-9107-b3ae34c3fc27" >
-		<logger level="INFO" message="Routage vers pays destination: #[payload.marchandises[0].paysDestination]" doc:name="Log Routing" />
+		<logger level="INFO" message="Routage vers pays destination: #[vars.incoming.marchandises[0].paysDestination]" doc:name="Log Routing" />
 		<ee:transform doc:name="Transform for Destination System" doc:id="14853548-ac2f-413f-bcbf-bab42f88e2c8">
 			<ee:message>
 				<ee:set-payload><![CDATA[%dw 2.0
@@ -99,13 +100,13 @@ output application/json
 ---
 {
     manifeste: {
-        numeroOrigine: payload.numeroManifeste,
-        transporteur: payload.transporteur,
-        portOrigine: payload.portEmbarquement,
-        dateArrivee: payload.dateArrivee,
+        numeroOrigine: vars.incoming.numeroManifeste,
+        transporteur: vars.incoming.transporteur,
+        portOrigine: vars.incoming.portEmbarquement,
+        dateArrivee: vars.incoming.dateArrivee,
         paysOrigine: "CIV" // Exemple Côte d'Ivoire
     },
-    marchandises: payload.marchandises map ((item, index) -> {
+    marchandises: vars.incoming.marchandises map ((item, index) -> {
         position: index + 1,
         codeTarifaire: item.codeSH,
         description: item.designation,
@@ -117,7 +118,7 @@ output application/json
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-		<http:request method="POST" doc:name="Send to Destination Country" doc:id="23ca1e61-4f33-4b98-88a0-88a8d0ada690" path="/api/v1/manifeste/reception" config-ref="paysBConfig">
+		<http:request method="POST" doc:name="Send to Destination Country" doc:id="23ca1e61-4f33-4b98-88a0-88a8d0ada690" path="/api/manifeste/reception" config-ref="paysBConfig">
 			<http:headers><![CDATA[#[output application/java
 ---
 {
@@ -138,14 +139,14 @@ output application/json
 ---
 {
     typeOperation: "TRANSMISSION_MANIFESTE",
-    numeroOperation: payload.numeroManifeste ++ "-" ++ now() as String {format: "yyyyMMddHHmmss"},
+    numeroOperation: vars.incoming.numeroManifeste ++ "-" ++ now() as String {format: "yyyyMMddHHmmss"},
     paysOrigine: "CIV",
-    paysDestination: payload.marchandises[0].paysDestination,
+    paysDestination: vars.incoming.marchandises[0].paysDestination,
     donneesMetier: {
-        numeroManifeste: payload.numeroManifeste,
-        transporteur: payload.transporteur,
-        nombreMarchandises: sizeOf(payload.marchandises),
-        valeurTotaleEstimee: sum(payload.marchandises.poidsBrut) * 100 // Estimation simplifiée
+        numeroManifeste: vars.incoming.numeroManifeste,
+        transporteur: vars.incoming.transporteur,
+        nombreMarchandises: sizeOf(vars.incoming.marchandises),
+        valeurTotaleEstimee: sum(vars.incoming.marchandises.poidsBrut) * 100 // Estimation simplifiée
     },
     horodatage: now(),
     source: "KIT_INTERCONNEXION"
@@ -165,6 +166,7 @@ output application/json
 
     <!-- FLOW 4: Réception Notification Paiement depuis Pays B -->
     <sub-flow name="receive-payment-notification" doc:id="467a8d5e-2cd8-4c6a-b244-3ed7704d0f63" >
+		<set-variable value="#[payload]" doc:name="Set incoming" doc:id="3919ddc5-4946-46ab-ac57-a892b4a8f0fa" variableName="incoming" />
 		<ee:transform doc:name="Validate Payment Notification" doc:id="8ee4728a-ae2d-4e46-a301-95234294387a">
 			<ee:message>
 				<ee:set-payload><![CDATA[%dw 2.0
@@ -219,7 +221,7 @@ output application/json
 
     <!-- FLOW 6: API de Santé et Status -->
     <sub-flow name="authorize-release-to-origin" doc:id="ad41dfd3-9427-44ab-bc78-52b9f12af1b9" >
-		<logger level="INFO" message="Autorisation mainlevée pour: #[payload.manifesteOrigine]" doc:name="Log Release Authorization" />
+		<logger level="INFO" message="Autorisation mainlevée pour: #[vars.incoming.manifesteOrigine]" doc:name="Log Release Authorization" />
 		<ee:transform doc:name="Transform Release Authorization" doc:id="3c159df0-614c-479d-8ce2-b550d76fc183">
 			<ee:message>
 				<ee:set-payload><![CDATA[%dw 2.0
@@ -227,12 +229,12 @@ output application/json
 ---
 {
     autorisationMainlevee: {
-        numeroManifeste: payload.manifesteOrigine,
-        numeroDeclaration: payload.numeroDeclaration,
-        montantAcquitte: payload.montantPaye,
-        paysDeclarant: payload.paysDeclarant,
+        numeroManifeste: vars.incoming.manifesteOrigine,
+        numeroDeclaration: vars.incoming.numeroDeclaration,
+        montantAcquitte: vars.incoming.montantPaye,
+        paysDeclarant: vars.incoming.paysDeclarant,
         dateAutorisation: now(),
-        referenceAutorisation: "AUTH-" ++ payload.numeroDeclaration ++ "-" ++ (now() as String {format: "yyyyMMddHHmmss"}),
+        referenceAutorisation: "AUTH-" ++ vars.incoming.numeroDeclaration ++ "-" ++ (now() as String {format: "yyyyMMddHHmmss"}),
         statut: "AUTORISE"
     }
 }]]></ee:set-payload>
@@ -251,24 +253,27 @@ output application/json
 	</sub-flow>
 	<!-- Nouveau sub-flow pour la traçabilité Commission UEMOA -->
 	<sub-flow name="record-commission-trace" doc:id="1da65dc5-8b72-49e9-89c9-a9b7a8a0686b">
-	    <logger level="INFO" message="📊 Réception traçabilité Commission UEMOA: #[payload.numeroOperation]" doc:name="Log Commission Trace" />
+	    <set-variable value="#[payload]" doc:name="Set incoming" doc:id="2e7f001a-832a-494c-bc95-a707e268cd15" variableName="incoming" />
+		<logger level="INFO" message="📊 Réception traçabilité Commission UEMOA: #[vars.incoming.numeroOperation]" doc:name="Log Commission Trace" />
 	    
 	    <ee:transform doc:name="Validate Commission Trace" doc:id="d7345025-0170-4c18-a1dd-632767576277">
 	        <ee:message>
-	            <ee:set-payload><![CDATA[%dw 2.0
-	output application/json
-	---
-	{
-	    typeOperation: payload.typeOperation,
-	    numeroOperation: payload.numeroOperation,
-	    paysOrigine: payload.paysOrigine,
-	    paysDestination: payload.paysDestination,
-	    donneesMetier: payload.donneesMetier,
-	    dateEnregistrement: now(),
-	    statut: "TRACE_RECUE",
-	    source: "COMMISSION_UEMOA"
-	}]]></ee:set-payload>
 	        </ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="operation" ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    typeOperation: vars.incoming.typeOperation,
+    numeroOperation: vars.incoming.numeroOperation,
+    paysOrigine: vars.incoming.paysOrigine,
+    paysDestination: vars.incoming.paysDestination,
+    donneesMetier: vars.incoming.donneesMetier,
+    dateEnregistrement: now(),
+    statut: "TRACE_RECUE",
+    source: "COMMISSION_UEMOA"
+}]]></ee:set-variable>
+			</ee:variables>
 	    </ee:transform>
 	    
 	    <!-- Stockage en base de données -->
@@ -280,33 +285,33 @@ output application/json
 	            (:typeOperation, :paysOrigine, :paysDestination, :numeroOperation, 
 	             :payloadEntrant, :statutTraitement, :dateDebut)]]></db:sql>
 	        <db:input-parameters><![CDATA[#[{
-	            typeOperation: payload.typeOperation,
-	            paysOrigine: payload.paysOrigine,
-	            paysDestination: payload.paysDestination,
-	            numeroOperation: payload.numeroOperation,
-	            payloadEntrant: write(payload, "application/json"),
-	            statutTraitement: "ENREGISTRE",
-	            dateDebut: payload.dateEnregistrement
-	        }]]]></db:input-parameters>
+    typeOperation: vars.operation.typeOperation,
+    paysOrigine: vars.operation.paysOrigine,
+    paysDestination: vars.operation.paysDestination,
+    numeroOperation: vars.operation.numeroOperation,
+    payloadEntrant: write(vars.operation, "application/json"),
+    statutTraitement: "ENREGISTRE",
+    dateDebut: vars.operation.dateEnregistrement
+}]]]></db:input-parameters>
 	    </db:insert>
 	    
 	    <!-- Réponse de confirmation -->
 	    <ee:transform doc:name="Commission Trace Response" doc:id="9975dfc0-7d64-4405-899c-6c2dfd95d64f">
 	        <ee:message>
 	            <ee:set-payload><![CDATA[%dw 2.0
-	output application/json
-	---
-	{
-	    status: "RECORDED",
-	    message: "Opération de traçabilité enregistrée avec succès",
-	    numeroOperation: payload.numeroOperation,
-	    typeOperation: payload.typeOperation,
-	    timestamp: payload.dateEnregistrement,
-	    commission: {
-	        statut: "ACQUITTE",
+output application/json
+---
+{
+    status: "RECORDED",
+	message: "Opération de traçabilité enregistrée avec succès",
+	numeroOperation: vars.operation.numeroOperation,
+	typeOperation: vars.operation.typeOperation,
+	timestamp: vars.operation.dateEnregistrement,
+	commission: {
+	    statut: "ACQUITTE",
 	        horodatage: now()
 	    }
-	}]]></ee:set-payload>
+}]]></ee:set-payload>
 	        </ee:message>
 	    </ee:transform>
 	    

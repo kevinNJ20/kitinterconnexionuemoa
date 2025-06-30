@@ -68,7 +68,7 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
 	</http:request-config>
 	
 	<db:config name="interconnexionDbConfig" doc:name="Database Config" doc:id="2b60e037-0da5-4844-a355-47717a3f2306" >
-		<db:mssql-connection host="localhost" port="1433" user="sa" password="UemoaInterconnexion2025!" databaseName="InterconnexionUEMOA" />
+		<db:generic-connection url="jdbc:postgresql://db.hgkuqkjvgshfrayjelps.supabase.co:5432/postgres" user="postgres" password="kZeR8HgjDqKzmk5n" driverClassName="org.postgresql.Driver"/>
 	</db:config>
 	
 	<error-handler name="global-error-handler" doc:id="f90b91ba-6b87-491b-bb11-22a2538276bd" >

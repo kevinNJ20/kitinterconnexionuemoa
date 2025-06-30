@@ -70,6 +70,24 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
 	<db:config name="interconnexionDbConfig" doc:name="Database Config" doc:id="2b60e037-0da5-4844-a355-47717a3f2306" >
 		<db:generic-connection url="${db.url_interco}" user="${db.user}" password="${db.password}" driverClassName="${db.driver}"/>
 	</db:config>
+	<http:request-config name="supabaseRestConfig" doc:name="Supabase REST API Config" doc:id="209eb4de-3d0a-4e31-aa3e-7947771787ce">
+		<http:request-connection 
+			host="${supabase.host}" 
+			protocol="HTTPS" 
+			port="${supabase.port}">
+			<tls:context>
+				<tls:trust-store insecure="true" />
+			</tls:context>
+		</http:request-connection>
+		<!-- ✅ Headers par défaut utilisant les variables YAML -->
+		<http:default-headers>
+			<http:default-header key="apikey" value="${supabase.anon_key}" />
+			<http:default-header key="Authorization" value="Bearer ${supabase.anon_key}" />
+			<http:default-header key="Content-Type" value="${supabase.headers.content_type}" />
+			<http:default-header key="Prefer" value="${supabase.headers.prefer}" />
+			<http:default-header key="User-Agent" value="${supabase.headers.user_agent}" />
+		</http:default-headers>
+	</http:request-config>
 	
 	<error-handler name="global-error-handler" doc:id="f90b91ba-6b87-491b-bb11-22a2538276bd" >
 		<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="d8ec8b9b-18be-4d1c-bb0d-5a2775804520" >

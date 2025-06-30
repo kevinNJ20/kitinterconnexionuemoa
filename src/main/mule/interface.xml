@@ -60,19 +60,10 @@ output application/json
 
     <!-- ✅ CORRECTION: Sub-flow CORS amélioré -->
     <sub-flow name="cors-headers" doc:id="d8585bfe-a33e-4d06-9aac-613f6d370044">
-        <set-variable doc:name="Set Enhanced CORS Headers" doc:id="c43a8843-e55b-4ad2-badc-ae3aafc62912" variableName="corsHeaders">
-            <![CDATA[#[{
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Source-Country, X-Correlation-ID, X-Source-System, X-Test-Type, X-Authorization-Source, User-Agent",
-                "Access-Control-Max-Age": "3600",
-                "Access-Control-Allow-Credentials": "false",
-                "Vary": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
-            }]]]>
-        </set-variable>
         
         <!-- ✅ NOUVEAU: Logging pour debug CORS -->
-        <logger level="DEBUG" message="🔀 [Kit] CORS headers set for request from: #[attributes.headers['origin'] default 'no-origin']" doc:name="Log CORS Setup" />
+        <set-variable value='#[{&#10;    "Access-Control-Allow-Origin": "*",&#10;    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",&#10;    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Source-Country, X-Correlation-ID, X-Source-System, X-Test-Type, X-Authorization-Source, User-Agent",&#10;    "Access-Control-Max-Age": "3600",&#10;    "Access-Control-Allow-Credentials": "false",&#10;    "Vary": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"&#10;}]' doc:name="Set Enhanced CORS Headers" doc:id="51a3edff-cc61-4a46-9b06-bef23651b856" variableName="corsHeaders"/>
+		<logger level="DEBUG" message="🔀 [Kit] CORS headers set for request from: #[attributes.headers['origin'] default 'no-origin']" doc:name="Log CORS Setup" />
     </sub-flow>
 
     <!-- ✅ CONSOLE FLOW CORRIGÉ avec CORS -->

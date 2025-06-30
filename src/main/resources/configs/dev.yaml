@@ -53,9 +53,36 @@ db:
   #driver: "org.h2.Driver"
   driver: "org.postgresql.Driver"
   #url_interco: "jdbc:h2:mem:interconnexion;DB_CLOSE_DELAY=-1"
-  url_interco: "jdbc:postgresql://db.hgkuqkjvgshfrayjelps.supabase.co:5432"
+  url_interco: "jdbc:postgresql://db.hgkuqkjvgshfrayjelps.supabase.co:5432/postgres?sslmode=require&user=postgres&password=kZeR8HgjDqKzmk5n"
   user: "postgres"
   password: "kZeR8HgjDqKzmk5n"
+  
+# ✅ NOUVELLE APPROCHE: Supabase REST API
+supabase:
+  # 🔑 Vos vraies clés récupérées du Dashboard
+  url: "https://hgkuqkjvgshfrayjelps.supabase.co"
+  host: "hgkuqkjvgshfrayjelps.supabase.co"  # ✅ AJOUT: Host pour MuleSoft
+  port: "443"  # ✅ AJOUT: Port HTTPS
+  anon_key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhna3Vxa2p2Z3NoZnJheWplbHBzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyNzU4MzYsImV4cCI6MjA2Njg1MTgzNn0.FGy7iFKfzsiDZiPssrvBZk2HtVM_jCKMSsg69lT98gQ"
+  service_role_key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhna3Vxa2p2Z3NoZnJheWplbHBzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MTI3NTgzNiwiZXhwIjoyMDY2ODUxODM2fQ.vdwtSoUnmixm49JHone4YhRZgy8agl7Hcotb7HWpCsU"
+  
+  # ✅ Configuration REST API
+  rest:
+    base_url: "https://hgkuqkjvgshfrayjelps.supabase.co/rest/v1"
+    base_path: "/rest/v1"  # ✅ AJOUT: Path de base pour MuleSoft
+    endpoints:
+      manifestes: "/manifestes_recus"
+      paiements: "/paiements_recus" 
+      autorisations: "/autorisations_mainlevee"
+      tracabilite: "/tracabilite_echanges"
+      configurations: "/configurations_pays"
+      metriques: "/metriques_operations"
+  
+  # ✅ Headers par défaut
+  headers:
+    content_type: "application/json"
+    prefer: "return=representation"
+    user_agent: "Kit-Interconnexion-UEMOA/1.0"
   
 oauth:
   client:

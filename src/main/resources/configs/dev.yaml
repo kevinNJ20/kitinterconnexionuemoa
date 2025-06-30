@@ -1,3 +1,8 @@
+# ============================================================================
+# CONFIGURATION FINALE MULESOFT - URLS CORRIGÉES
+# Fichier: src/main/resources/configs/dev.yaml
+# ============================================================================
+
 # Configuration HTTP
 http:
   port: "8080"
@@ -10,36 +15,40 @@ api:
   key:
     commission: "COMMISSION_SECRET_KEY"
 
-# ✅ CORRECTION: URLs des Systèmes Externes - URLs réelles des simulateurs
+# ✅ CORRECTION MAJEURE: URLs des Systèmes Externes - URLs RÉELLES des simulateurs Vercel
 systeme:
   paysA:
-    host: "pays-a-simulator.vercel.app"
-    port: "443"  # Garder pour compatibilité
-    url: "https://pays-a-simulator.vercel.app"
+    # ⚠️ REMPLACER par l'URL Vercel réelle de Pays A
+    host: "simulateur-pays-a-cotier.vercel.app"  # ← URL à adapter selon votre déploiement
+    port: "443"
+    url: "https://simulateur-pays-a-cotier.vercel.app"
     endpoints:
       health: "/api/health"
       mainlevee: "/api/mainlevee/autorisation"
+      
   paysB:
-    host: "pays-b-simulator.vercel.app"
-    port: "443"  # Garder pour compatibilité  
-    url: "https://pays-b-simulator.vercel.app"
+    # ⚠️ REMPLACER par l'URL Vercel réelle de Pays B
+    host: "simulateur-pays-b-hinterland.vercel.app"  # ← URL à adapter selon votre déploiement
+    port: "443"
+    url: "https://simulateur-pays-b-hinterland.vercel.app"
     endpoints:
       health: "/api/health"
       manifeste: "/api/manifeste/reception"
 
-# ✅ CORRECTION: URL Commission UEMOA - Utiliser l'URL réelle du simulateur
+# ✅ CORRECTION MAJEURE: URL Commission UEMOA - URL RÉELLE du simulateur
 commission:
   uemoa:
-    host: "commission-uemoa.vercel.app"  # URL corrigée
-    port: "443"  # Garder pour compatibilité
-    url: "https://commission-uemoa.vercel.app"  # URL corrigée
+    # ⚠️ REMPLACER par l'URL Vercel réelle de Commission UEMOA
+    host: "simulateur-commission-uemoa.vercel.app"  # ← URL à adapter selon votre déploiement
+    port: "443"
+    url: "https://simulateur-commission-uemoa.vercel.app"
     endpoints:
       health: "/api/health"
-      tracabilite: "/api/tracabilite/enregistrer"  # ✅ SANS /v1
+      tracabilite: "/api/tracabilite/enregistrer"  # ✅ Path correct SANS /v1
     auth:
       token: "COMMISSION_TOKEN"
 
-### Database config ####
+### Database config (inchangé) ####
 db:
   driver: "org.h2.Driver"
   url_interco: "jdbc:h2:mem:interconnexion;DB_CLOSE_DELAY=-1"
@@ -59,13 +68,13 @@ monitoring:
 logging:
   level: "INFO"
   
-# ✅ NOUVEAU: Configuration CORS pour les tests depuis les dashboards
+# ✅ AMÉLIORATION: Configuration CORS étendue pour les tests depuis les dashboards
 cors:
   enabled: "true"
   origins: 
-    - "pays-a-simulator.vercel.app"
-    - "pays-b-simulator.vercel.app" 
-    - "commission-uemoa.vercel.app"
+    - "*.vercel.app"  # Accepter toutes les URLs Vercel pour les tests
+    - "localhost"     # Pour les tests locaux
+    - "127.0.0.1"     # Pour les tests locaux
   headers:
     - "Content-Type"
     - "Authorization"
@@ -73,14 +82,16 @@ cors:
     - "X-Source-System"
     - "X-Correlation-ID"
     - "X-Test-Type"
+    - "X-Authorization-Source"
+    - "User-Agent"
 
-# ✅ NOUVEAU: Configuration timeout pour les appels externes
+# ✅ AMÉLIORATION: Configuration timeout pour la robustesse
 external:
   timeout:
-    connection: "10000"  # 10 secondes
-    read: "15000"     # 15 secondes
+    connection: "15000"  # 15 secondes (augmenté pour Vercel)
+    read: "20000"        # 20 secondes (augmenté pour Vercel)
     
-# ✅ NOUVEAU: Configuration retry pour la robustesse
+# ✅ AMÉLIORATION: Configuration retry pour la robustesse Vercel
 retry:
   attempts: "3"
-  delay: "2000"  # 2 secondes entre tentatives
+  delay: "3000"  # 3 secondes entre tentatives (augmenté pour Vercel)

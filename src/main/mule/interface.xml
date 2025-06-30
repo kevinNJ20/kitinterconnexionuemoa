@@ -21,7 +21,7 @@
 		<error-handler ref="global-error-handler" />
     </flow>
     <sub-flow name="cors-headers" doc:id="d3372bcc-45d7-49f0-a007-7824a94bff7f" >
-		<set-variable value="#[{&#10;        'Access-Control-Allow-Origin': '*',&#10;        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',&#10;        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Source-Country, X-Correlation-ID',&#10;        'Access-Control-Max-Age': '3600'&#10;    }]" doc:name="Set CORS Headers" doc:id="c7f08379-92ac-491c-86c9-19e6368d67b2" variableName="corsHeaders"/>
+		<set-variable value="#[{&#10;	&quot;Access-Control-Allow-Origin&quot;: '*',&#10;	&quot;Access-Control-Allow-Methods&quot;: 'GET, POST, PUT, DELETE, OPTIONS',&#10;	&quot;Access-Control-Allow-Headers&quot;: 'Content-Type, Authorization, X-Source-Country, X-Correlation-ID, X-Source-System',&#10;	&quot;Access-Control-Max-Age&quot;: '3600'&#10;	}]" doc:name="Set CORS Headers" doc:id="c7f08379-92ac-491c-86c9-19e6368d67b2" variableName="corsHeaders"/>
 	</sub-flow>
 	<flow name="kitinterconnexionuemoa-console">
         <http:listener path="/console/*" config-ref="kitinterconnexionuemoa-httpListenerConfig">

@@ -10,18 +10,22 @@ api:
   key:
     commission: "COMMISSION_SECRET_KEY"
 
-# Configuration Systèmes Externes
+# Configuration Systèmes Externes - CORRECTION: Supprimer les ports explicites
 systeme:
   paysA:
     host: "pays-a-simulator.vercel.app"
-    port: "443"
+    port: "443"  # Garder pour la compatibilité mais ne pas utiliser dans l'URL
+    url: "https://pays-a-simulator.vercel.app"  # NOUVEAU: URL complète sans port
   paysB:
     host: "pays-b-simulator.vercel.app"
-    port: "443"
+    port: "443"  # Garder pour la compatibilité mais ne pas utiliser dans l'URL
+    url: "https://pays-b-simulator.vercel.app"  # NOUVEAU: URL complète sans port
+
 commission:
   uemoa:
     host: "commission-simulator-one.vercel.app"
-    port: "443"
+    port: "443"  # Garder pour la compatibilité mais ne pas utiliser dans l'URL
+    url: "https://commission-simulator-one.vercel.app"  # NOUVEAU: URL complète sans port
 
 ### database config ####
 db:

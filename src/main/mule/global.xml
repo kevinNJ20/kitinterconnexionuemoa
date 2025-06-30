@@ -18,13 +18,7 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd">
 
     <!-- Configuration des propriétés -->
-    <configuration-properties doc:name="Configuration properties" doc:id="9e22d9cf-3526-418c-a046-d38e94faeea4" file="configs\dev.yaml" />
-
-    <!-- Configuration HTTP Global -->
-
-    <!-- Configuration HTTP Request Globaux -->
-
-    <!-- Configuration Base de Données -->
+    <configuration-properties doc:name="Configuration properties" doc:id="4b760b28-d454-4810-b76b-1d22ebf44466" file="configs\dev.yaml" />
 
     <!-- Configuration JMS pour messaging asynchrone -->
     <jms:config name="jmsConfig" doc:name="JMS Config">
@@ -32,15 +26,20 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
             <jms:factory-configuration brokerUrl="vm://localhost"/>
         </jms:active-mq-connection>
     </jms:config>
-	<apikit:config outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" doc:name="Router" doc:id="b35ea442-074d-43d7-8f17-f38d2be63c75" name="kitinterconnexionuemoa-config" api="kitinterconnexionuemoa.raml" />
-	<http:listener-config name="kitinterconnexionuemoa-httpListenerConfig" doc:name="HTTP Listener config" doc:id="5f83a536-86a5-4e1d-ac59-79aa0d5e410d" >
+	
+	<apikit:config outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" doc:name="Router" doc:id="2ac83d93-586c-4742-ac79-e00dfa17152f" name="kitinterconnexionuemoa-config" api="kitinterconnexionuemoa.raml" />
+	
+	<http:listener-config name="kitinterconnexionuemoa-httpListenerConfig" doc:name="HTTP Listener config" doc:id="42898d4a-c1d0-4475-8033-b29adf0f3149" >
 		<http:listener-connection host="${http.host}" port="${http.port}" />
 	</http:listener-config>
-	<db:config name="interconnexionDbConfig-2" doc:name="Database Config" doc:id="0890fff8-6588-4090-b872-4cdafb8a3fbc" >
+	
+	<db:config name="interconnexionDbConfig-2" doc:name="Database Config" doc:id="fa1c65d7-f443-4d11-90b5-1ff95e266ca8" >
 		<db:generic-connection url="${db.url_interco}" driverClassName="${db.driver}" user="${db.user}" />
 	</db:config>
-	<http:request-config name="paysAConfig" doc:name="HTTP Request configuration" doc:id="be89c382-9c50-474c-a716-3e739999a34b" >
-		<http:request-connection host="${systeme.paysA.host}" port="${systeme.paysA.port}" protocol="HTTPS">
+	
+	<!-- CORRECTION: Configuration HTTP Request pour Pays A - SANS PORT EXPLICITE -->
+	<http:request-config name="paysAConfig" doc:name="HTTP Request configuration" doc:id="e5417815-7b24-4439-a65b-82d154c8db91" >
+		<http:request-connection host="${systeme.paysA.host}" protocol="HTTPS">
 			<tls:context >
 				<tls:trust-store insecure="true" />
 			</tls:context>
@@ -49,26 +48,32 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
 			</http:authentication>
 		</http:request-connection>
 	</http:request-config>
-	<http:request-config name="paysBConfig" doc:name="HTTP Request configuration" doc:id="aaaaacb9-5f01-44cf-af52-0c01439ad559" >
-		<http:request-connection host="${systeme.paysB.host}" port="${systeme.paysB.port}" protocol="HTTPS">
+	
+	<!-- CORRECTION: Configuration HTTP Request pour Pays B - SANS PORT EXPLICITE -->
+	<http:request-config name="paysBConfig" doc:name="HTTP Request configuration" doc:id="05f90f5a-3e42-48a3-81c5-fd65d50fcbcc" >
+		<http:request-connection host="${systeme.paysB.host}" protocol="HTTPS">
 			<tls:context >
 				<tls:trust-store insecure="true" />
 			</tls:context>
 		</http:request-connection>
 	</http:request-config>
-	<http:request-config name="commissionConfig" doc:name="HTTP Request configuration" doc:id="2dc27b16-712d-45d4-b8f9-df911cbee64d" >
-		<http:request-connection host="${commission.uemoa.host}" port="${commission.uemoa.port}" protocol="HTTPS">
+	
+	<!-- CORRECTION: Configuration HTTP Request pour Commission - SANS PORT EXPLICITE -->
+	<http:request-config name="commissionConfig" doc:name="HTTP Request configuration" doc:id="48c0290c-683e-4651-9923-119bfc2a1093" >
+		<http:request-connection host="${commission.uemoa.host}" protocol="HTTPS">
 			<tls:context >
 				<tls:trust-store insecure="true" />
 			</tls:context>
 		</http:request-connection>
 	</http:request-config>
-	<db:config name="interconnexionDbConfig" doc:name="Database Config" doc:id="0b86a1aa-347b-4300-ab53-ceeeab958822" >
+	
+	<db:config name="interconnexionDbConfig" doc:name="Database Config" doc:id="2b60e037-0da5-4844-a355-47717a3f2306" >
 		<db:mssql-connection host="localhost" port="1433" user="sa" password="UemoaInterconnexion2025!" databaseName="InterconnexionUEMOA" />
 	</db:config>
-	<error-handler name="global-error-handler" doc:id="8990d707-83f9-480b-b306-d4b72c342ccd" >
-		<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="fbbd1c8c-6f4b-49eb-84c9-34d631392e8c" >
-			<ee:transform doc:name="Error Response" doc:id="0b8988f9-7334-45df-b590-e97505e0c213" >
+	
+	<error-handler name="global-error-handler" doc:id="f90b91ba-6b87-491b-bb11-22a2538276bd" >
+		<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="d8ec8b9b-18be-4d1c-bb0d-5a2775804520" >
+			<ee:transform doc:name="Error Response" doc:id="5c612e82-d4b9-4cb4-8557-5925374cb415" >
 				<ee:message >
 					<ee:set-payload ><![CDATA[%dw 2.0
 output application/json
@@ -81,7 +86,7 @@ output application/json
 }]]></ee:set-payload>
 				</ee:message>
 			</ee:transform>
-			<set-variable value="#[500]" doc:name="Set Error Status" doc:id="feeb3560-891d-4835-9daf-7205fc1318f3" variableName="http.status" />
+			<set-variable value="#[500]" doc:name="Set Error Status" doc:id="a8f6e4fc-94cd-4bc3-af3d-2c8704566680" variableName="http.status" />
 		</on-error-continue>
 	</error-handler>
 </mule>

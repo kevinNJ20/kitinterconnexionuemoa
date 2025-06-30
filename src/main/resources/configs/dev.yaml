@@ -10,24 +10,36 @@ api:
   key:
     commission: "COMMISSION_SECRET_KEY"
 
-# Configuration Systèmes Externes - CORRECTION: Supprimer les ports explicites
+# ✅ CORRECTION: URLs des Systèmes Externes - URLs réelles des simulateurs
 systeme:
   paysA:
     host: "pays-a-simulator.vercel.app"
-    port: "443"  # Garder pour la compatibilité mais ne pas utiliser dans l'URL
-    url: "https://pays-a-simulator.vercel.app"  # NOUVEAU: URL complète sans port
+    port: "443"  # Garder pour compatibilité
+    url: "https://pays-a-simulator.vercel.app"
+    endpoints:
+      health: "/api/health"
+      mainlevee: "/api/mainlevee/autorisation"
   paysB:
     host: "pays-b-simulator.vercel.app"
-    port: "443"  # Garder pour la compatibilité mais ne pas utiliser dans l'URL
-    url: "https://pays-b-simulator.vercel.app"  # NOUVEAU: URL complète sans port
+    port: "443"  # Garder pour compatibilité  
+    url: "https://pays-b-simulator.vercel.app"
+    endpoints:
+      health: "/api/health"
+      manifeste: "/api/manifeste/reception"
 
+# ✅ CORRECTION: URL Commission UEMOA - Utiliser l'URL réelle du simulateur
 commission:
   uemoa:
-    host: "commission-simulator-one.vercel.app"
-    port: "443"  # Garder pour la compatibilité mais ne pas utiliser dans l'URL
-    url: "https://commission-simulator-one.vercel.app"  # NOUVEAU: URL complète sans port
+    host: "commission-uemoa.vercel.app"  # URL corrigée
+    port: "443"  # Garder pour compatibilité
+    url: "https://commission-uemoa.vercel.app"  # URL corrigée
+    endpoints:
+      health: "/api/health"
+      tracabilite: "/api/tracabilite/enregistrer"  # ✅ SANS /v1
+    auth:
+      token: "COMMISSION_TOKEN"
 
-### database config ####
+### Database config ####
 db:
   driver: "org.h2.Driver"
   url_interco: "jdbc:h2:mem:interconnexion;DB_CLOSE_DELAY=-1"
@@ -42,5 +54,33 @@ oauth:
 # Configuration Monitoring
 monitoring:
   enabled: "true"
+  
+# Configuration Logging
 logging:
   level: "INFO"
+  
+# ✅ NOUVEAU: Configuration CORS pour les tests depuis les dashboards
+cors:
+  enabled: "true"
+  origins: 
+    - "pays-a-simulator.vercel.app"
+    - "pays-b-simulator.vercel.app" 
+    - "commission-uemoa.vercel.app"
+  headers:
+    - "Content-Type"
+    - "Authorization"
+    - "X-Source-Country"
+    - "X-Source-System"
+    - "X-Correlation-ID"
+    - "X-Test-Type"
+
+# ✅ NOUVEAU: Configuration timeout pour les appels externes
+external:
+  timeout:
+    connection: "10000"  # 10 secondes
+    read: "15000"     # 15 secondes
+    
+# ✅ NOUVEAU: Configuration retry pour la robustesse
+retry:
+  attempts: "3"
+  delay: "2000"  # 2 secondes entre tentatives

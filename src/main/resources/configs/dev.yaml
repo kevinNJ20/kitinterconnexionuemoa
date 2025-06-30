@@ -50,10 +50,12 @@ commission:
 
 ### Database config (inchangé) ####
 db:
-  driver: "org.h2.Driver"
-  url_interco: "jdbc:h2:mem:interconnexion;DB_CLOSE_DELAY=-1"
-  user: "sa"
-  password: ""
+  #driver: "org.h2.Driver"
+  driver: "org.postgresql.Driver"
+  #url_interco: "jdbc:h2:mem:interconnexion;DB_CLOSE_DELAY=-1"
+  url_interco: "jdbc:postgresql://db.hgkuqkjvgshfrayjelps.supabase.co:5432"
+  user: "postgres"
+  password: "kZeR8HgjDqKzmk5n"
   
 oauth:
   client:

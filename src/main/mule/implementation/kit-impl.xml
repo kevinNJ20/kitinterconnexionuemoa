@@ -9,6 +9,7 @@
         http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
         http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
 
+	<!-- ✅ BATCH FLOW: Récupération des apurements depuis Supabase vers Pays A -->
     <!-- ✅ FLOW 1: Réception Manifeste FORMAT UEMOA avec Supabase REST API -->
     <sub-flow name="receive-manifeste-from-pays-a" doc:id="676006f6-9481-4dd8-b0fa-f8e9fec8cccf" >
         <set-variable value="#['KIT_' ++ now() as String {format: 'yyyyMMddHHmmss'} ++ '_' ++ (random() * 1000) as String {format: '000'}]" 
@@ -25,25 +26,40 @@
 output application/json
 ---
 {
-    // ✅ Nouveaux champs format UEMOA
+    // ✅ CORRECTION: Noms de colonnes conformes au schéma
     numero_manifeste: vars.incoming.numero_manif as String,
-    annee_manifeste: vars.incoming.annee_manif,
-    bureau_manifeste: vars.incoming.bureau_manif,
+    annee_manif: vars.incoming.annee_manif,
+    bureau_manif: vars.incoming.bureau_manif,
+    numero_manif: vars.incoming.numero_manif as Number,
     code_cgt: vars.incoming.code_cgt,
     consignataire: vars.incoming.consignataire,
     repertoire: vars.incoming.repertoire,
     
-    // ✅ Informations navire UEMOA
+    // ✅ CORRECTION: Champs obligatoires ajoutés
+    transporteur: vars.incoming.consignataire, // Utiliser consignataire comme transporteur si pas fourni
+    format_type: "UEMOA", // ✅ OBLIGATOIRE pour respecter les contraintes
+    version_uemoa: "2025.1",
+    
+    // ✅ Informations navire UEMOA - noms conformes
     navire: vars.incoming.navire,
     provenance: vars.incoming.provenance,
     pavillon: vars.incoming.pavillon,
     date_arrivee: vars.incoming.date_arrivee,
-    valeur_approximative: vars.incoming.valapprox,
+    valapprox: vars.incoming.valapprox, // ✅ CORRECTION: nom correct
+    nbre_article: vars.incoming.nbre_article, // ✅ CORRECTION: nom correct
     
-    // ✅ Métadonnées
-    pays_origine: "CIV",  // Côte d'Ivoire par défaut
-    pays_destination: vars.incoming.articles[0].pays_dest,
-    nombre_articles: vars.incoming.nbre_article,
+    // ✅ CORRECTION: Codes pays conformes (3 caractères max)
+    pays_origine: "CIV",  // Côte d'Ivoire
+    pays_destination: (
+        if (vars.incoming.articles[0].pays_dest contains "SÉNÉGAL") "SEN"
+        else if (vars.incoming.articles[0].pays_dest contains "BURKINA") "BFA"
+        else if (vars.incoming.articles[0].pays_dest contains "MALI") "MLI"
+        else if (vars.incoming.articles[0].pays_dest contains "NIGER") "NER"
+        else if (vars.incoming.articles[0].pays_dest contains "TOGO") "TGO"
+        else if (vars.incoming.articles[0].pays_dest contains "BENIN") "BEN"
+        else if (vars.incoming.articles[0].pays_dest contains "GUINÉE") "GIN"
+        else vars.incoming.articles[0].pays_dest[0 to 2] // Prendre les 3 premiers caractères
+    ),
     
     // ✅ Données complètes format UEMOA
     data_json: {
@@ -187,21 +203,35 @@ output application/json
     </sub-flow>
 
     <!-- FLOW 3: Notification Commission UEMOA - FORMAT ENRICHI -->
-    <sub-flow name="notify-commission-uemoa" doc:id="f526d669-a1a0-417b-a659-260cd4220c6e" >
+    <sub-flow name="notify-commission-uemoa" doc:id="c6eec056-2b16-4c20-b00f-531d8e230eff" >
         <async doc:name="Async Commission Notification">
             <logger level="INFO" message="📊 [Kit] Notification Commission UEMOA pour manifeste: #[vars.incoming.numero_manif]" doc:name="Log Commission Notification" />
             
-            <ee:transform doc:name="Transform UEMOA for Commission" doc:id="a2690e62-7c24-4fd1-8f82-30d457ef7091">
+            <ee:transform doc:name="Transform UEMOA for Commission Manifeste" doc:id="fe8c57cf-5956-460f-8b81-d1212187f6ad">
                 <ee:message>
                     <ee:set-payload><![CDATA[%dw 2.0
 output application/json
+// ✅ FONCTION: Mapper pays complets vers codes ISO 3 lettres
+fun mapPaysToCodes(pays) = 
+    if (pays == "BURKINA FASO" or pays == "BURKINA") "BFA"
+    else if (pays == "SÉNÉGAL" or pays == "SENEGAL") "SEN"
+    else if (pays == "CÔTE D'IVOIRE" or pays == "COTE D'IVOIRE") "CIV"
+    else if (pays == "MALI") "MLI"
+    else if (pays == "NIGER") "NER"
+    else if (pays == "TOGO") "TGO"
+    else if (pays == "BÉNIN" or pays == "BENIN") "BEN"
+    else if (pays == "GUINÉE-BISSAU" or pays == "GUINEE-BISSAU") "GNB"
+    else pays // Si déjà un code, le retourner tel quel
 ---
 {
     typeOperation: "TRANSMISSION_MANIFESTE_UEMOA",
     numeroOperation: vars.incoming.numero_manif ++ "-" ++ vars.incoming.annee_manif ++ "-" ++ now() as String {format: "yyyyMMddHHmmss"},
     format: "UEMOA",
-    paysOrigine: "CIV",
-    paysDestination: vars.incoming.articles[0].pays_dest,
+    // ✅ CORRECTION: Normaliser les codes pays (mapper pays complets vers codes)
+    paysOrigine: if (vars.incoming.provenance == "MAROC") "MAR"
+                 else if (vars.incoming.provenance == "ROTTERDAM") "NLD"
+                 else "CIV", // Par défaut Côte d'Ivoire
+    paysDestination: mapPaysToCodes(vars.incoming.articles[0].pays_dest),
     
     // ✅ Données métier enrichies format UEMOA
     donneesMetier: {
@@ -219,8 +249,8 @@ output application/json
         nombre_conteneurs_total: sum(vars.incoming.articles.nbre_conteneur),
         valeur_approximative: vars.incoming.valapprox,
         
-        // Destinations multiples
-        pays_destinations: vars.incoming.articles.pays_dest distinctBy $,
+        // Destinations multiples (✅ CORRECTION: Mapper vers codes pays)
+        pays_destinations: vars.incoming.articles.pays_dest distinctBy $ map mapPaysToCodes($),
         villes_destinations: vars.incoming.articles.ville_dest distinctBy $,
         
         // Types de marchandises
@@ -234,15 +264,17 @@ output application/json
     horodatage: now(),
     source: "KIT_INTERCONNEXION_UEMOA",
     version_format: "UEMOA_2025.1"
-}]]></ee:set-payload>
+}
+
+]]></ee:set-payload>
                 </ee:message>
             </ee:transform>
             
-            <!-- ✅ UTILISE LES VARIABLES YAML pour l'endpoint -->
-            <http:request method="POST" doc:name="Send to Commission UEMOA" 
-                          path="${commission.uemoa.endpoints.tracabilite}" config-ref="commissionConfig">
+            <!-- ✅ NOUVEAU ENDPOINT: Manifestes spécialisé -->
+            <http:request method="POST" doc:name="Send Manifeste to Commission UEMOA" 
+                          path="${commission.uemoa.endpoints.manifeste}" config-ref="commissionConfig">
                 <http:headers><![CDATA[#[{
-    "Authorization": "Bearer ${commission.uemoa.auth.token}",
+    "Authorization": "Bearer " ++ Mule::p('commission.uemoa.auth.token'),
     "Content-Type": "application/json",
     "X-Source-System": "KIT_INTERCONNEXION_UEMOA",
     "X-Correlation-ID": vars.correlationId,
@@ -250,7 +282,7 @@ output application/json
 }]]]></http:headers>
             </http:request>
             
-            <logger level="INFO" message="✅ [Kit] Commission UEMOA notifiée avec succès (format UEMOA)" doc:name="Log Commission Success" />
+            <logger level="INFO" message="✅ [Kit] Commission UEMOA notifiée manifeste avec succès (format UEMOA)" doc:name="Log Commission Success" />
         </async>
     </sub-flow>
 
@@ -271,7 +303,7 @@ output application/json
 ---
 {
     numero_declaration: vars.incoming.numeroDeclaration,
-    manifeste_origine: vars.incoming.manifesteOrigine,
+    manifeste_origine: vars.incoming.manifesteOrigine as String,
     montant_paye: vars.incoming.montantPaye,
     reference_paiement: vars.incoming.referencePaiement,
     date_paiement: vars.incoming.datePaiement,
@@ -598,21 +630,38 @@ output application/json
     </sub-flow>
 
     <!-- ✅ FLOW 5: Notification Commission UEMOA pour Déclarations -->
-    <sub-flow name="notify-commission-declaration" doc:id="ee09cd2c-b71f-4920-b47b-acbe3f54f24c" >
-        <async doc:name="Async Commission Declaration Notification" doc:id="ecb55046-7fa6-4659-8327-820e18b72363">
-            <logger level="INFO" message="📊 [Kit] Notification Commission UEMOA pour déclaration: #[vars.incoming.numeroDecl]" doc:name="Log Commission Declaration Notification" doc:id="e8549d71-7ee9-4875-908e-b292b91dd98a" />
+    <sub-flow name="notify-commission-declaration" doc:id="21bd19e4-618b-45f3-81e6-b55ca6f84667" >
+        <async doc:name="Async Commission Declaration Notification" doc:id="2a67c482-a53e-4efe-82c0-1055dbf4c7c4">
+            <logger level="INFO" message="📊 [Kit] Notification Commission UEMOA pour déclaration: #[vars.incoming.numeroDecl]" doc:name="Log Commission Declaration Notification" doc:id="08a153b0-2f5f-42d0-aa3e-3a55de3dbd48" />
             
-            <ee:transform doc:name="Transform Declaration for Commission" doc:id="b426af6d-ce66-4a90-b1ef-3103006a8fca">
+            <ee:transform doc:name="Transform Declaration for Commission" doc:id="d5883264-b44d-4478-afe3-b80cd15ea125">
                 <ee:message>
                     <ee:set-payload><![CDATA[%dw 2.0
 output application/json
+// ✅ FONCTION: Mapper pays complets vers codes ISO 3 lettres (réutilisée)
+fun mapPaysToCodes(pays) = 
+    if (pays == "ÉTATS-UNIS" or pays == "ETATS-UNIS") "USA"
+    else if (pays == "CHINE") "CHN"
+    else if (pays == "FRANCE") "FRA"
+    else if (pays == "ALLEMAGNE") "DEU"
+    else if (pays == "ROYAUME-UNI") "GBR"
+    else if (pays == "BURKINA FASO" or pays == "BURKINA") "BFA"
+    else if (pays == "SÉNÉGAL" or pays == "SENEGAL") "SEN"
+    else if (pays == "CÔTE D'IVOIRE" or pays == "COTE D'IVOIRE") "CIV"
+    else if (pays == "MALI") "MLI"
+    else if (pays == "NIGER") "NER"
+    else if (pays == "TOGO") "TGO"
+    else if (pays == "BÉNIN" or pays == "BENIN") "BEN"
+    else if (pays == "GUINÉE-BISSAU" or pays == "GUINEE-BISSAU") "GNB"
+    else pays // Si déjà un code, le retourner tel quel
 ---
 {
     typeOperation: "SOUMISSION_DECLARATION_DOUANIERE",
     numeroOperation: vars.incoming.numeroDecl ++ "-" ++ vars.incoming.anneeDecl ++ "-" ++ now() as String {format: "yyyyMMddHHmmss"},
     format: "DECLARATION_DOUANIERE",
-    paysOrigine: "BFA",
-    paysDestination: "CIV", // Retour vers pays côtier
+    // ✅ CORRECTION: Codes pays fixes et corrects
+    paysOrigine: "BFA", // Burkina Faso
+    paysDestination: "CIV", // Retour vers pays côtier (Côte d'Ivoire)
     
     // ✅ Données métier enrichies format Déclaration
     donneesMetier: {
@@ -637,9 +686,9 @@ output application/json
             liquidation: article.liquidation
         }),
         
-        // Codes SH distincts
+        // Codes SH distincts (✅ CORRECTION: Normaliser les pays d'origine)
         codes_sh_distincts: vars.incoming.articles.codeSh distinctBy $,
-        origines_distinctes: vars.incoming.articles.origine distinctBy $,
+        origines_distinctes: vars.incoming.articles.origine distinctBy $ map mapPaysToCodes($),
         modes_conditionnement: vars.incoming.articles.modeCond distinctBy $
     },
     
@@ -650,11 +699,11 @@ output application/json
                 </ee:message>
             </ee:transform>
             
-            <!-- ✅ UTILISE LES VARIABLES YAML pour l'endpoint -->
-            <http:request method="POST" doc:name="Send Declaration to Commission UEMOA" doc:id="656c0574-0125-4085-bc38-c4904d68037a"
-                          path="${commission.uemoa.endpoints.tracabilite}" config-ref="commissionConfig">
+            <!-- ✅ NOUVEAU ENDPOINT: Déclarations spécialisé -->
+            <http:request method="POST" doc:name="Send Declaration to Commission UEMOA" doc:id="f1123a53-b7db-4265-9b3b-ec5796bc7628"
+                          path="${commission.uemoa.endpoints.declaration}" config-ref="commissionConfig">
                 <http:headers><![CDATA[#[{
-    "Authorization": "Bearer ${commission.uemoa.auth.token}",
+    "Authorization": "Bearer " ++ Mule::p('commission.uemoa.auth.token'),
     "Content-Type": "application/json",
     "X-Source-System": "KIT_INTERCONNEXION_UEMOA",
     "X-Correlation-ID": vars.correlationId,
@@ -662,7 +711,354 @@ output application/json
 }]]]></http:headers>
             </http:request>
             
-            <logger level="INFO" message="✅ [Kit] Commission UEMOA notifiée pour déclaration avec succès" doc:name="Log Commission Declaration Success" doc:id="303591e6-8b04-42dc-b3ef-adc310a43ac5" />
+            <logger level="INFO" message="✅ [Kit] Commission UEMOA notifiée pour déclaration avec succès" doc:name="Log Commission Declaration Success" doc:id="3a2bc702-fb08-49f0-9a9e-0d9995451176" />
+        </async>
+    </sub-flow>
+    <!-- ✅ BATCH FLOW: Récupération des apurements depuis Supabase vers Pays A -->
+    <flow name="batch-apurement-to-pays-a" doc:id="6f05fee4-1a13-4ffb-9dad-0a89bee12e57">
+        <!-- ✅ Scheduler: Exécution toutes les 30 secondes pour traitement temps réel -->
+        <scheduler doc:name="Scheduler Apurement" doc:id="830687d7-50f2-4e34-8031-203831c435dd">
+            <scheduling-strategy>
+                <fixed-frequency frequency="30000" startDelay="5000"/>
+            </scheduling-strategy>
+        </scheduler>
+        
+        <set-variable value="#['BATCH_APUREMENT_' ++ now() as String {format: 'yyyyMMddHHmmss'}]" 
+                      doc:name="Set Batch Correlation ID" variableName="batchCorrelationId"/>
+        
+        <logger level="INFO" message="🔄 [Batch] Démarrage récupération apurements depuis Supabase - ID: #[vars.batchCorrelationId]" doc:name="Log Batch Start" />
+        
+        <!-- ✅ Récupération des apurements en attente depuis Supabase -->
+        <http:request method="GET" doc:name="Get Pending Apurements from Supabase" 
+                      config-ref="supabaseRestConfig" 
+                      path="${supabase.rest.base_path}/apurements_en_attente?statut=eq.EN_ATTENTE&order=date_creation.asc">
+            <http:headers><![CDATA[#[{
+    "Authorization": "Bearer ${supabase.service_role_key}",
+    "Content-Type": "application/json",
+    "User-Agent": "Kit-Interconnexion-UEMOA-Batch/1.0"
+}]]]></http:headers>
+        </http:request>
+        
+        <!-- ✅ Vérification s'il y a des apurements à traiter -->
+        <choice doc:name="Check if Apurements Found">
+            <when expression="#[sizeOf(payload) > 0]">
+                <logger level="INFO" message="📋 [Batch] #[sizeOf(payload)] apurement(s) trouvé(s) à traiter" doc:name="Log Apurements Found" />
+                
+                <!-- ✅ Traitement de chaque apurement -->
+                <foreach doc:name="Process Each Apurement" collection="#[payload]">
+                    <flow-ref name="process-single-apurement" doc:name="Process Single Apurement" />
+                </foreach>
+                
+                <logger level="INFO" message="✅ [Batch] Traitement terminé pour #[sizeOf(payload)] apurement(s)" doc:name="Log Batch Complete" />
+            </when>
+            <otherwise>
+                <logger level="DEBUG" message="⏳ [Batch] Aucun apurement en attente trouvé" doc:name="Log No Apurements" />
+            </otherwise>
+        </choice>
+        
+        <error-handler>
+            <on-error-continue type="ANY">
+                <logger level="ERROR" message="❌ [Batch] Erreur dans le traitement des apurements: #[error.description]" doc:name="Log Batch Error" />
+            </on-error-continue>
+        </error-handler>
+    </flow>
+
+    <!-- ✅ SUB-FLOW: Traitement d'un apurement individuel -->
+    <sub-flow name="process-single-apurement" doc:id="5d206097-f65e-4cf2-a049-6af1137bcffc">
+        <set-variable value="#[payload]" doc:name="Set Current Apurement" variableName="currentApurement"/>
+        
+        <logger level="INFO" message="🔍 [Batch] Traitement apurement ID: #[vars.currentApurement.id] - Déclaration: #[vars.currentApurement.numero_declaration]" doc:name="Log Processing Apurement" />
+        
+        <!-- ✅ Récupération des détails de la déclaration associée -->
+        <http:request method="GET" doc:name="Get Declaration Details" 
+                      config-ref="supabaseRestConfig" 
+                      path="${supabase.rest.base_path}/declarations_recues?numero_declaration=eq.#[vars.currentApurement.numero_declaration]&limit=1">
+            <http:headers><![CDATA[#[{
+    "Authorization": "Bearer ${supabase.service_role_key}",
+    "Content-Type": "application/json"
+}]]]></http:headers>
+        </http:request>
+        
+        <set-variable value="#[payload[0]]" doc:name="Set Declaration Details" variableName="declarationDetails"/>
+        
+        <!-- ✅ Récupération du manifeste associé -->
+        <http:request method="GET" doc:name="Get Manifeste Details" 
+                      config-ref="supabaseRestConfig" 
+                      path="${supabase.rest.base_path}/manifestes_recus?numero_manifeste=eq.#[vars.currentApurement.numero_manifeste]&limit=1">
+            <http:headers><![CDATA[#[{
+    "Authorization": "Bearer ${supabase.service_role_key}",
+    "Content-Type": "application/json"
+}]]]></http:headers>
+        </http:request>
+        
+        <set-variable value="#[payload[0]]" doc:name="Set Manifeste Details" variableName="manifesteDetails"/>
+        
+        <!-- ✅ Préparation des données pour Pays A -->
+        <ee:transform doc:name="Transform Apurement Data for Pays A" doc:id="9eab7655-f774-48b4-82e5-4cd010dbaff8">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    apurement: {
+        id: vars.currentApurement.id,
+        numero_declaration: vars.currentApurement.numero_declaration,
+        numero_manifeste: vars.currentApurement.numero_manifeste,
+        date_creation: vars.currentApurement.date_creation,
+        statut: vars.currentApurement.statut,
+        type_apurement: vars.currentApurement.type_apurement,
+        
+        // Données enrichies de la déclaration
+        declaration: {
+            annee_declaration: vars.declarationDetails.annee_declaration,
+            bureau_declaration: vars.declarationDetails.bureau_declaration,
+            date_declaration: vars.declarationDetails.date_declaration,
+            nombre_articles: vars.declarationDetails.nombre_articles,
+            valeur_totale_caf: vars.declarationDetails.valeur_totale_caf,
+            liquidation_totale: vars.declarationDetails.liquidation_totale,
+            poids_total_brut: vars.declarationDetails.poids_total_brut,
+            poids_total_net: vars.declarationDetails.poids_total_net,
+            pays_declarant: vars.declarationDetails.pays_declarant,
+            articles_summary: vars.declarationDetails.data_json.articles_summary
+        },
+        
+        // Données enrichies du manifeste
+        manifeste: {
+            annee_manifeste: vars.manifesteDetails.annee_manifeste,
+            bureau_manifeste: vars.manifesteDetails.bureau_manifeste,
+            consignataire: vars.manifesteDetails.consignataire,
+            navire: vars.manifesteDetails.navire,
+            provenance: vars.manifesteDetails.provenance,
+            pavillon: vars.manifesteDetails.pavillon,
+            date_arrivee: vars.manifesteDetails.date_arrivee,
+            nombre_articles: vars.manifesteDetails.nombre_articles,
+            pays_origine: vars.manifesteDetails.pays_origine,
+            pays_destination: vars.manifesteDetails.pays_destination
+        }
+    },
+    
+    // Métadonnées de traitement
+    metadata: {
+        batch_id: vars.batchCorrelationId,
+        date_traitement: now() as DateTime,
+        source: "KIT_BATCH_APUREMENT",
+        version: "1.0"
+    }
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <!-- ✅ Envoi vers Pays A -->
+        <http:request method="POST" doc:name="Send Apurement to Pays A" 
+                      path="${systeme.paysA.endpoints.apurement}" config-ref="paysAConfig">
+            <http:headers><![CDATA[#[{
+    "Content-Type": "application/json",
+    "X-Source-System": "KIT_INTERCONNEXION_BATCH",
+    "X-Batch-ID": vars.batchCorrelationId,
+    "X-Apurement-ID": vars.currentApurement.id
+}]]]></http:headers>
+        </http:request>
+        
+        <!-- ✅ Mise à jour du statut dans Supabase -->
+        <ee:transform doc:name="Prepare Status Update" doc:id="56e66293-b629-4a47-8a02-8bd27805693f">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    statut: "TRANSMIS_PAYS_A",
+    date_transmission: now() as DateTime,
+    batch_id: vars.batchCorrelationId
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <http:request method="PATCH" doc:name="Update Apurement Status" 
+                      config-ref="supabaseRestConfig" 
+                      path="${supabase.rest.base_path}/apurements_en_attente?id=eq.#[vars.currentApurement.id]">
+            <http:headers><![CDATA[#[{
+    "Authorization": "Bearer ${supabase.service_role_key}",
+    "Content-Type": "application/json",
+    "Prefer": "return=minimal"
+}]]]></http:headers>
+        </http:request>
+        
+        <logger level="INFO" message="✅ [Batch] Apurement ID: #[vars.currentApurement.id] transmis avec succès vers Pays A" doc:name="Log Apurement Success" />
+        
+        <error-handler>
+            <on-error-continue type="ANY">
+                <logger level="ERROR" message="❌ [Batch] Erreur traitement apurement ID: #[vars.currentApurement.id] - #[error.description]" doc:name="Log Single Apurement Error" />
+                
+                <!-- ✅ Marquer l'apurement en erreur -->
+                <ee:transform doc:name="Prepare Error Status Update">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    statut: "ERREUR_TRANSMISSION",
+    erreur_message: error.description,
+    date_erreur: now() as DateTime
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+                
+                <http:request method="PATCH" doc:name="Update Error Status" 
+                              config-ref="supabaseRestConfig" 
+                              path="${supabase.rest.base_path}/apurements_en_attente?id=eq.#[vars.currentApurement.id]">
+                    <http:headers><![CDATA[#[{
+    "Authorization": "Bearer ${supabase.service_role_key}",
+    "Content-Type": "application/json",
+    "Prefer": "return=minimal"
+}]]]></http:headers>
+                </http:request>
+            </on-error-continue>
+        </error-handler>
+    </sub-flow>
+
+    <!-- ✅ FLOW: Enregistrement des données d'apurement dans Supabase (appelé depuis Pays B) -->
+    <sub-flow name="record-apurement-data" doc:id="0849c396-31cd-4e6c-8c0d-9ff4b8831bd2">
+        <set-variable value="#['APUREMENT_' ++ now() as String {format: 'yyyyMMddHHmmss'} ++ '_' ++ (random() * 1000) as String {format: '000'}]" 
+                      doc:name="Set Apurement Correlation ID" variableName="correlationId"/>
+        
+        <set-variable value="#[payload]" doc:name="Set incoming" variableName="incoming"/>
+        
+        <logger level="INFO" message="💾 [Kit] Enregistrement apurement - Déclaration: #[vars.incoming.numeroDeclaration] - Manifeste: #[vars.incoming.numeroManifeste]" doc:name="Log Apurement Recording" />
+        
+        <!-- ✅ Préparation des données d'apurement pour Supabase -->
+        <ee:transform doc:name="Transform Apurement for Supabase" doc:id="ec12738d-aaaa-422a-9386-2628bb4af157">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    numero_declaration: vars.incoming.numeroDeclaration,
+    numero_manifeste: vars.incoming.numeroManifeste,
+    type_apurement: vars.incoming.typeApurement default "STANDARD",
+    pays_declarant: vars.incoming.paysDeclarant default "BFA",
+    pays_origine_manifeste: vars.incoming.paysOrigineManifeste default "CIV",
+    
+    // Données de contexte
+    motif_apurement: vars.incoming.motifApurement default "Fin de traitement douanier",
+    urgence: vars.incoming.urgence default false,
+    
+    // Métadonnées
+    date_creation: now() as DateTime,
+    statut: "EN_ATTENTE",
+    source_system: "PAYS_B_DOUANES",
+    correlation_id: vars.correlationId,
+    
+    // Données complètes pour traçabilité
+    data_json: {
+        request_payload: vars.incoming,
+        creation_context: {
+            user_agent: attributes.headers['user-agent'] default "unknown",
+            source_ip: attributes.headers['x-forwarded-for'] default attributes.remoteAddress,
+            timestamp: now() as DateTime
+        }
+    }
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <!-- ✅ Insertion dans Supabase -->
+        <http:request method="POST" doc:name="Insert Apurement to Supabase" 
+                      config-ref="supabaseRestConfig" 
+                      path="${supabase.rest.base_path}/apurements_en_attente">
+            <http:headers><![CDATA[#[{
+    "Authorization": "Bearer ${supabase.service_role_key}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation"
+}]]]></http:headers>
+        </http:request>
+        
+        <set-variable value="#[payload[0]]" doc:name="Set Inserted Apurement" variableName="insertedApurement"/>
+        
+        <logger level="INFO" message="✅ [Kit] Apurement enregistré avec ID: #[vars.insertedApurement.id] - Statut: EN_ATTENTE" doc:name="Log Apurement Inserted" />
+        
+        <!-- ✅ Notification Commission UEMOA de l'apurement -->
+        <flow-ref name="notify-commission-apurement" doc:name="Notify Commission Apurement" />
+        
+        <!-- ✅ Réponse de succès -->
+        <ee:transform doc:name="Apurement Recording Response" doc:id="06e9624c-97fe-4bf0-a71e-0951f66b5fd0">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    status: "SUCCESS",
+    message: "Apurement enregistré avec succès, traitement en cours",
+    apurement: {
+        id: vars.insertedApurement.id,
+        numero_declaration: vars.insertedApurement.numero_declaration,
+        numero_manifeste: vars.insertedApurement.numero_manifeste,
+        statut: vars.insertedApurement.statut,
+        date_creation: vars.insertedApurement.date_creation
+    },
+    correlationId: vars.correlationId,
+    timestamp: now() as DateTime,
+    next_steps: [
+        "Apurement en attente de traitement par le batch",
+        "Transmission automatique vers Pays A dans les 30 secondes",
+        "Notification de la Commission UEMOA effectuée"
+    ]
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <set-variable value="#[200]" doc:name="Set Success Status" variableName="httpStatus" />
+    </sub-flow>
+
+    <!-- ✅ SUB-FLOW: Notification Commission UEMOA pour apurement -->
+    <sub-flow name="notify-commission-apurement" doc:id="e30cad09-c6c9-4851-816b-803bb2aaff0e">
+        <async doc:name="Async Commission Apurement Notification">
+            <logger level="INFO" message="📊 [Kit] Notification Commission UEMOA pour apurement - Déclaration: #[vars.insertedApurement.numero_declaration]" doc:name="Log Commission Apurement Notification" />
+            
+            <ee:transform doc:name="Transform Apurement for Commission" doc:id="cf6462eb-efb5-4985-bdf7-2da9c18e16fd">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    typeOperation: "DEMANDE_APUREMENT",
+    numeroOperation: vars.insertedApurement.numero_declaration ++ "-APR-" ++ now() as String {format: "yyyyMMddHHmmss"},
+    format: "APUREMENT_INTER_PAYS",
+    paysOrigine: vars.insertedApurement.pays_origine_manifeste,
+    paysDestination: vars.insertedApurement.pays_declarant,
+    
+    // Données métier apurement
+    donneesMetier: {
+        numero_declaration: vars.insertedApurement.numero_declaration,
+        numero_manifeste: vars.insertedApurement.numero_manifeste,
+        type_apurement: vars.insertedApurement.type_apurement,
+        motif_apurement: vars.insertedApurement.motif_apurement,
+        urgence: vars.insertedApurement.urgence,
+        date_demande: vars.insertedApurement.date_creation,
+        
+        // Référence croisée
+        apurement_id: vars.insertedApurement.id,
+        correlation_id: vars.insertedApurement.correlation_id
+    },
+    
+    horodatage: now() as DateTime,
+    source: "KIT_INTERCONNEXION_APUREMENT",
+    version_format: "APUREMENT_2025.1"
+}]]></ee:set-payload>
+                </ee:message>
+            </ee:transform>
+            
+            <http:request method="POST" doc:name="Send Apurement to Commission UEMOA" 
+                          path="${commission.uemoa.endpoints.tracabilite}" config-ref="commissionConfig">
+                <http:headers><![CDATA[#[{
+    "Authorization": "Bearer ${commission.uemoa.auth.token}",
+    "Content-Type": "application/json",
+    "X-Source-System": "KIT_INTERCONNEXION_APUREMENT",
+    "X-Correlation-ID": vars.correlationId,
+    "X-Format": "APUREMENT"
+}]]]></http:headers>
+            </http:request>
+            
+            <logger level="INFO" message="✅ [Kit] Commission UEMOA notifiée pour apurement avec succès" doc:name="Log Commission Apurement Success" />
         </async>
     </sub-flow>
 

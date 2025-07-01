@@ -87,4 +87,9 @@ output application/json
         <logger level="INFO" message="📋 [Kit] Déclaration douanière depuis: #[attributes.headers['x-source-system'] default 'unknown'] (#[attributes.headers['x-source-country'] default 'unknown'])" doc:name="Log Declaration Request" />
         <flow-ref doc:name="Process Declaration" doc:id="36e5f5b9-512a-45fa-8c22-344ab5c2ba5c" name="receive-declaration-from-pays-b" />
     </flow>
+    <!-- ✅ NOUVEAU ENDPOINT: Apurement depuis Pays B -->
+    <flow name="post:\apurement\demande:application\json:kitinterconnexionuemoa-config">
+        <logger level="INFO" message="🔓 [Kit] Demande apurement depuis: #[attributes.headers['x-source-system'] default 'unknown'] (#[attributes.headers['x-source-country'] default 'unknown'])" doc:name="Log Apurement Request" />
+        <flow-ref doc:name="Process Apurement" doc:id="ad0fc90b-9c62-4235-9cea-1b268dc916c6" name="record-apurement-data" />
+    </flow>
 </mule>

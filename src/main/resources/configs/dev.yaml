@@ -1,5 +1,5 @@
 # ============================================================================
-# CONFIGURATION FINALE MULESOFT - URLS CORRIGÉES
+# CONFIGURATION MULESOFT CORRIGÉE - Nouveaux Endpoints Commission
 # Fichier: src/main/resources/configs/dev.yaml
 # ============================================================================
 
@@ -15,11 +15,10 @@ api:
   key:
     commission: "COMMISSION_SECRET_KEY"
 
-# ✅ CORRECTION MAJEURE: URLs des Systèmes Externes - URLs RÉELLES des simulateurs Vercel
+# ✅ CORRECTION: URLs des Systèmes Externes
 systeme:
   paysA:
-    # ⚠️ REMPLACER par l'URL Vercel réelle de Pays A
-    host: "localhost"  # ← URL à adapter selon votre déploiement
+    host: "localhost"
     port: "3001"
     url: "https://simulateur-pays-a-cotier.vercel.app"
     endpoints:
@@ -27,49 +26,48 @@ systeme:
       mainlevee: "/api/mainlevee/autorisation"
       
   paysB:
-    # ⚠️ REMPLACER par l'URL Vercel réelle de Pays B
-    host: "localhost"  # ← URL à adapter selon votre déploiement
+    host: "localhost"
     port: "3002"
     url: "https://simulateur-pays-b-hinterland.vercel.app"
     endpoints:
       health: "/api/health"
       manifeste: "/api/manifeste/reception"
 
-# ✅ CORRECTION MAJEURE: URL Commission UEMOA - URL RÉELLE du simulateur
+# ✅ CORRECTION MAJEURE: Commission UEMOA avec endpoints séparés
 commission:
   uemoa:
-    # ⚠️ REMPLACER par l'URL Vercel réelle de Commission UEMOA
-    host: "localhost"  # ← URL à adapter selon votre déploiement
+    host: "localhost"
     port: "3003"
     url: "https://simulateur-commission-uemoa.vercel.app"
     endpoints:
       health: "/api/health"
-      tracabilite: "/api/tracabilite/enregistrer"  # ✅ Path correct SANS /v1
+      # ✅ NOUVEAUX ENDPOINTS SPÉCIALISÉS
+      manifeste: "/api/tracabilite/manifeste"        # Pour les transmissions de manifeste
+      declaration: "/api/tracabilite/declaration"    # Pour les soumissions de déclaration
+      tracabilite: "/api/tracabilite/enregistrer"    # Endpoint générique (conservé pour compatibilité)
+      statistiques: "/api/statistiques"
+      dashboard: "/api/dashboard"
     auth:
       token: "COMMISSION_TOKEN"
 
-### Database config (inchangé) ####
+# Configuration Base de Données
 db:
-  #driver: "org.h2.Driver"
   driver: "org.postgresql.Driver"
-  #url_interco: "jdbc:h2:mem:interconnexion;DB_CLOSE_DELAY=-1"
   url_interco: "jdbc:postgresql://db.hgkuqkjvgshfrayjelps.supabase.co:5432/postgres?sslmode=require&user=postgres&password=kZeR8HgjDqKzmk5n"
   user: "postgres"
   password: "kZeR8HgjDqKzmk5n"
   
-# ✅ NOUVELLE APPROCHE: Supabase REST API
+# ✅ Configuration Supabase REST API
 supabase:
-  # 🔑 Vos vraies clés récupérées du Dashboard
   url: "https://hgkuqkjvgshfrayjelps.supabase.co"
-  host: "hgkuqkjvgshfrayjelps.supabase.co"  # ✅ AJOUT: Host pour MuleSoft
-  port: "443"  # ✅ AJOUT: Port HTTPS
+  host: "hgkuqkjvgshfrayjelps.supabase.co"
+  port: "443"
   anon_key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhna3Vxa2p2Z3NoZnJheWplbHBzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyNzU4MzYsImV4cCI6MjA2Njg1MTgzNn0.FGy7iFKfzsiDZiPssrvBZk2HtVM_jCKMSsg69lT98gQ"
   service_role_key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhna3Vxa2p2Z3NoZnJheWplbHBzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MTI3NTgzNiwiZXhwIjoyMDY2ODUxODM2fQ.vdwtSoUnmixm49JHone4YhRZgy8agl7Hcotb7HWpCsU"
   
-  # ✅ Configuration REST API
   rest:
     base_url: "https://hgkuqkjvgshfrayjelps.supabase.co/rest/v1"
-    base_path: "/rest/v1"  # ✅ AJOUT: Path de base pour MuleSoft
+    base_path: "/rest/v1"
     endpoints:
       manifestes: "/manifestes_recus"
       paiements: "/paiements_recus" 
@@ -79,7 +77,6 @@ supabase:
       metriques: "/metriques_operations"
       declarations: "/declarations_recues"
   
-  # ✅ Headers par défaut
   headers:
     content_type: "application/json"
     prefer: "return=representation"
@@ -98,13 +95,13 @@ monitoring:
 logging:
   level: "INFO"
   
-# ✅ AMÉLIORATION: Configuration CORS étendue pour les tests depuis les dashboards
+# ✅ Configuration CORS
 cors:
   enabled: "true"
   origins: 
-    - "*.vercel.app"  # Accepter toutes les URLs Vercel pour les tests
-    - "localhost"     # Pour les tests locaux
-    - "127.0.0.1"     # Pour les tests locaux
+    - "*.vercel.app"
+    - "localhost"
+    - "127.0.0.1"
   headers:
     - "Content-Type"
     - "Authorization"
@@ -115,13 +112,12 @@ cors:
     - "X-Authorization-Source"
     - "User-Agent"
 
-# ✅ AMÉLIORATION: Configuration timeout pour la robustesse
+# ✅ Configuration timeout et retry
 external:
   timeout:
-    connection: "15000"  # 15 secondes (augmenté pour Vercel)
-    read: "20000"        # 20 secondes (augmenté pour Vercel)
+    connection: "15000"  # 15 secondes
+    read: "20000"        # 20 secondes
     
-# ✅ AMÉLIORATION: Configuration retry pour la robustesse Vercel
 retry:
   attempts: "3"
-  delay: "3000"  # 3 secondes entre tentatives (augmenté pour Vercel)
+  delay: "3000"  # 3 secondes entre tentatives

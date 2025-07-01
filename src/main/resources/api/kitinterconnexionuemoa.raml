@@ -166,6 +166,79 @@ types:
         type: string
         description: Numéro de plomb
         example: "AE0293467"
+
+  DeclarationDouaniere:
+    type: object
+    properties:
+      anneeDecl: 
+        type: string
+        description: Année de la déclaration
+        example: "2025"
+      bureauDecl: 
+        type: string
+        description: Code du bureau déclarant
+        example: "10S"
+      numeroDecl: 
+        type: number
+        description: Numéro de la déclaration
+        example: 10765
+      dateDecl: 
+        type: date-only
+        description: Date de la déclaration
+        example: "2025-01-08"
+      articles: ArticleDeclaration[]
+
+  ArticleDeclaration:
+    type: object
+    properties:
+      numArt: 
+        type: number
+        description: Numéro de l'article
+        example: 1
+      connaissement: 
+        type: string
+        description: Numéro de connaissement
+        example: "NAM7190810"
+      modeCond: 
+        type: string
+        description: Mode de conditionnement
+        example: "ROULEAU"
+      codeSh: 
+        type: string
+        description: Code SH
+        example: "4703210000"
+      libelleTarif: 
+        type: string
+        description: Libellé tarifaire
+        example: "- Mi-blanchies ou blanchies :-- De coniferes"
+      designationCom: 
+        type: string
+        description: Désignation commerciale
+        example: "CNTR MISSING IN LARA 270 ROLLS (135 PACKS) FLUFF PULP"
+      origine: 
+        type: string
+        description: Pays d'origine
+        example: "ÉTATS-UNIS"
+      nbreColis: 
+        type: number
+        description: Nombre de colis
+        example: 270
+      poidsBrut: 
+        type: number
+        description: Poids brut en kg
+        example: 102442
+      poidsNet: 
+        type: number
+        description: Poids net en kg
+        example: 102442
+      valeurCaf: 
+        type: number
+        description: Valeur CAF
+        example: 77948508
+      liquidation: 
+        type: number
+        description: Montant de liquidation
+        example: 22433580
   
   NotificationPaiement:
     type: object
@@ -252,6 +325,51 @@ types:
                   "navire": "MARCO POLO",
                   "nombre_articles": 1,
                   "timestamp": "2025-01-15T10:30:00Z"
+                }
+
+/declaration:
+  /soumission:
+    post:
+      description: Soumission d'une déclaration douanière depuis un pays de destination
+      body:
+        application/json:
+          type: DeclarationDouaniere
+          example: |
+            {
+              "anneeDecl": "2025",
+              "bureauDecl": "10S",
+              "numeroDecl": 10765,
+              "dateDecl": "2025-01-08",
+              "articles": [
+                {
+                  "numArt": 1,
+                  "connaissement": "NAM7190810",
+                  "modeCond": "ROULEAU",
+                  "codeSh": "4703210000",
+                  "libelleTarif": "- Mi-blanchies ou blanchies :-- De coniferes",
+                  "designationCom": "CNTR MISSING IN LARA 270 ROLLS (135 PACKS) FLUFF PULP 104.699 ADMT BSC 0789609 DTHC COLLECT ITN X20241001359826 ROLLS",
+                  "origine": "ÉTATS-UNIS",
+                  "nbreColis": 270,
+                  "poidsBrut": 102442,
+                  "poidsNet": 102442,
+                  "valeurCaf": 77948508,
+                  "liquidation": 22433580
+                }
+              ]
+            }
+      responses:
+        200:
+          body:
+            application/json:
+              example: |
+                {
+                  "status": "SUCCESS",
+                  "message": "Déclaration douanière enregistrée avec succès",
+                  "numeroDecl": 10765,
+                  "bureauDecl": "10S",
+                  "anneeDecl": "2025",
+                  "nombreArticles": 1,
+                  "timestamp": "2025-01-08T14:30:00Z"
                 }
 
 /paiement:

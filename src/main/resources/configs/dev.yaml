@@ -77,6 +77,7 @@ supabase:
       tracabilite: "/tracabilite_echanges"
       configurations: "/configurations_pays"
       metriques: "/metriques_operations"
+      declarations: "/declarations_recues"
   
   # ✅ Headers par défaut
   headers:

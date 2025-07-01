@@ -83,4 +83,8 @@ output application/json
         <logger level="INFO" message="&#x1f4ca; [Kit] Traçabilité depuis: #[attributes.headers['x-source-system'] default 'unknown']" doc:name="Log Trace Request" />
         <flow-ref doc:name="Process Commission Trace" doc:id="b7a11845-b424-4774-b979-9605fa7beae8" name="record-commission-trace" />
     </flow>
+    <flow name="post:\declaration\soumission:application\json:kitinterconnexionuemoa-config">
+        <logger level="INFO" message="📋 [Kit] Déclaration douanière depuis: #[attributes.headers['x-source-system'] default 'unknown'] (#[attributes.headers['x-source-country'] default 'unknown'])" doc:name="Log Declaration Request" />
+        <flow-ref doc:name="Process Declaration" doc:id="36e5f5b9-512a-45fa-8c22-344ab5c2ba5c" name="receive-declaration-from-pays-b" />
+    </flow>
 </mule>

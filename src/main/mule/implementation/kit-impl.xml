@@ -61,7 +61,7 @@ output application/json
         dateReception: now(),
         source_system: "PAYS_A_UEMOA"
     },
-    date_reception: now(),
+    date_reception: now() as String { format: "yyyy-MM-dd'T'HH:mm:ssZ" },
     statut: "RECU_UEMOA"
 }]]></ee:set-payload>
             </ee:message>
@@ -498,6 +498,172 @@ output application/json
         </ee:transform>
         
         <logger level="INFO" message="🏥 [Kit] Health check effectué - Supabase: #[vars.supabaseStatus] - Format: UEMOA" doc:name="Log Health Check" />
+    </sub-flow>
+    <!-- ✅ FLOW 4: Réception Déclaration Douanière depuis Pays B avec Supabase REST API -->
+    <sub-flow name="receive-declaration-from-pays-b" doc:id="37e026ee-a5be-4023-8a2e-e7f5aee39735" >
+        <set-variable value="#['DECL_' ++ now() as String {format: 'yyyyMMddHHmmss'} ++ '_' ++ (random() * 1000) as String {format: '000'}]" 
+                      doc:name="Set Declaration Correlation ID" doc:id="d0845455-0121-4e25-b62d-20bc069ca9c9" variableName="correlationId"/>
+        
+        <set-variable value="#[payload]" doc:name="Set incoming" doc:id="dadb3d2d-9a0a-458c-99ba-56d940a99424" variableName="incoming"/>
+        
+        <logger level="INFO" message="📋 [Kit] Réception déclaration douanière: #[vars.incoming.numeroDecl] depuis Pays B" doc:name="Log Declaration Reception" doc:id="0dc56d0c-3919-48c7-af9c-f79908a3151e" />
+        
+        <!-- ✅ Préparation données pour Supabase REST API - Format Déclaration -->
+        <ee:transform doc:name="Transform Declaration for Supabase REST" doc:id="a18ce519-3bb5-4d61-9cb3-1dff746e9b28">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    // ✅ Champs principaux déclaration
+    annee_declaration: vars.incoming.anneeDecl,
+    bureau_declaration: vars.incoming.bureauDecl,
+    numero_declaration: vars.incoming.numeroDecl,
+    date_declaration: vars.incoming.dateDecl,
+    
+    // ✅ Informations agrégées
+    nombre_articles: sizeOf(vars.incoming.articles),
+    valeur_totale_caf: sum(vars.incoming.articles.valeurCaf),
+    liquidation_totale: sum(vars.incoming.articles.liquidation),
+    poids_total_brut: sum(vars.incoming.articles.poidsBrut),
+    poids_total_net: sum(vars.incoming.articles.poidsNet),
+    
+    // ✅ Métadonnées
+    pays_declarant: "BFA", // Burkina Faso par défaut pour Pays B
+    format_donnees: "DECLARATION_PAYS_B",
+    version_format: "2025.1",
+    
+    // ✅ Données complètes format Déclaration
+    data_json: {
+        format: "DECLARATION_DOUANIERE",
+        version: "2025.1",
+        declaration_complete: vars.incoming,
+        articles_summary: vars.incoming.articles map ((article, index) -> {
+            numero_article: article.numArt,
+            connaissement: article.connaissement,
+            designation: article.designationCom,
+            origine: article.origine,
+            valeur_caf: article.valeurCaf,
+            liquidation: article.liquidation,
+            poids_brut: article.poidsBrut,
+            code_sh: article.codeSh
+        }),
+        correlationId: vars.correlationId,
+        dateReception: now() as DateTime,
+        source_system: "PAYS_B_DOUANES"
+    },
+    date_reception: now(),
+    statut: "DECLARATION_RECUE"
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <!-- ✅ Insertion via Supabase REST API - Table déclarations -->
+        <http:request method="POST" doc:name="Insert Declaration via REST" doc:id="063e45e1-59e8-4803-8473-c7b0c95c2426" config-ref="supabaseRestConfig" 
+                      path="${supabase.rest.base_path}${supabase.rest.endpoints.declarations}">
+            <!-- Payload déjà préparé dans le transform précédent -->
+        </http:request>
+        
+        <logger level="INFO" message="✅ [Kit] Déclaration insérée via REST API: #[vars.incoming.numeroDecl]" doc:name="Log Declaration Insert Success" doc:id="beaac743-3462-4b3d-a942-aa4348f7da67" />
+        
+        <!-- ✅ Notifier Commission UEMOA de la déclaration -->
+        <flow-ref name="notify-commission-declaration" doc:name="Notify Commission Declaration" doc:id="5301ae35-28e5-406c-b304-a558d94f163e" />
+        
+        <ee:transform doc:name="Declaration Success Response" doc:id="825c164c-f642-4c03-895d-f9548ea27291">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    status: "SUCCESS",
+    message: "Déclaration douanière enregistrée avec succès via REST API",
+    numeroDecl: vars.incoming.numeroDecl,
+    bureauDecl: vars.incoming.bureauDecl,
+    anneeDecl: vars.incoming.anneeDecl,
+    nombreArticles: sizeOf(vars.incoming.articles),
+    valeurTotaleCaf: sum(vars.incoming.articles.valeurCaf),
+    liquidationTotale: sum(vars.incoming.articles.liquidation),
+    correlationId: vars.correlationId,
+    timestamp: now(),
+    supabase: {
+        endpoint: Mule::p('supabase.rest.base_path') ++ Mule::p('supabase.rest.endpoints.declarations'),
+        method: "POST",
+        format_store: "DECLARATION_PAYS_B_2025"
+    }
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <set-variable value="#[200]" doc:name="Set Success Status" doc:id="526d9a35-a15f-4f5c-950e-98a4b1081ab1" variableName="httpStatus" />
+    </sub-flow>
+
+    <!-- ✅ FLOW 5: Notification Commission UEMOA pour Déclarations -->
+    <sub-flow name="notify-commission-declaration" doc:id="ee09cd2c-b71f-4920-b47b-acbe3f54f24c" >
+        <async doc:name="Async Commission Declaration Notification" doc:id="ecb55046-7fa6-4659-8327-820e18b72363">
+            <logger level="INFO" message="📊 [Kit] Notification Commission UEMOA pour déclaration: #[vars.incoming.numeroDecl]" doc:name="Log Commission Declaration Notification" doc:id="e8549d71-7ee9-4875-908e-b292b91dd98a" />
+            
+            <ee:transform doc:name="Transform Declaration for Commission" doc:id="b426af6d-ce66-4a90-b1ef-3103006a8fca">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    typeOperation: "SOUMISSION_DECLARATION_DOUANIERE",
+    numeroOperation: vars.incoming.numeroDecl ++ "-" ++ vars.incoming.anneeDecl ++ "-" ++ now() as String {format: "yyyyMMddHHmmss"},
+    format: "DECLARATION_DOUANIERE",
+    paysOrigine: "BFA",
+    paysDestination: "CIV", // Retour vers pays côtier
+    
+    // ✅ Données métier enrichies format Déclaration
+    donneesMetier: {
+        numero_declaration: vars.incoming.numeroDecl,
+        annee_declaration: vars.incoming.anneeDecl,
+        bureau_declaration: vars.incoming.bureauDecl,
+        date_declaration: vars.incoming.dateDecl,
+        
+        // Statistiques agrégées
+        nombre_articles: sizeOf(vars.incoming.articles),
+        valeur_totale_caf: sum(vars.incoming.articles.valeurCaf),
+        liquidation_totale: sum(vars.incoming.articles.liquidation),
+        poids_total_brut: sum(vars.incoming.articles.poidsBrut),
+        poids_total_net: sum(vars.incoming.articles.poidsNet),
+        
+        // Articles principaux
+        articles_summary: vars.incoming.articles map ((article, index) -> {
+            numero: article.numArt,
+            code_sh: article.codeSh,
+            origine: article.origine,
+            valeur_caf: article.valeurCaf,
+            liquidation: article.liquidation
+        }),
+        
+        // Codes SH distincts
+        codes_sh_distincts: vars.incoming.articles.codeSh distinctBy $,
+        origines_distinctes: vars.incoming.articles.origine distinctBy $,
+        modes_conditionnement: vars.incoming.articles.modeCond distinctBy $
+    },
+    
+    horodatage: now() as DateTime,
+    source: "KIT_INTERCONNEXION_UEMOA",
+    version_format: "DECLARATION_2025.1"
+}]]></ee:set-payload>
+                </ee:message>
+            </ee:transform>
+            
+            <!-- ✅ UTILISE LES VARIABLES YAML pour l'endpoint -->
+            <http:request method="POST" doc:name="Send Declaration to Commission UEMOA" doc:id="656c0574-0125-4085-bc38-c4904d68037a"
+                          path="${commission.uemoa.endpoints.tracabilite}" config-ref="commissionConfig">
+                <http:headers><![CDATA[#[{
+    "Authorization": "Bearer ${commission.uemoa.auth.token}",
+    "Content-Type": "application/json",
+    "X-Source-System": "KIT_INTERCONNEXION_UEMOA",
+    "X-Correlation-ID": vars.correlationId,
+    "X-Format": "DECLARATION_DOUANIERE"
+}]]]></http:headers>
+            </http:request>
+            
+            <logger level="INFO" message="✅ [Kit] Commission UEMOA notifiée pour déclaration avec succès" doc:name="Log Commission Declaration Success" doc:id="303591e6-8b04-42dc-b3ef-adc310a43ac5" />
+        </async>
     </sub-flow>
 
 </mule>

@@ -3,17 +3,7 @@
 FICHIER: src/main/mule/interface.xml 
 CORRECTION: Application correcte des headers CORS dans toutes les réponses
 -->
-<mule xmlns="http://www.mulesoft.org/schema/mule/core" 
-      xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" 
-      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" 
-      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" 
-      xmlns:http="http://www.mulesoft.org/schema/mule/http" 
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
-      xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd 
-                          http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
-                          http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd 
-                          http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
-
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd                            http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd                            http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd                            http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
     <!-- ✅ FLOW PRINCIPAL CORRIGÉ avec CORS -->
     <flow name="kitinterconnexionuemoa-main">
         <http:listener path="/api/v1/*" config-ref="kitinterconnexionuemoa-httpListenerConfig">
@@ -26,14 +16,12 @@ CORRECTION: Application correcte des headers CORS dans toutes les réponses
                 <http:headers><![CDATA[#[vars.outboundHeaders ++ vars.corsHeaders default vars.corsHeaders]]]></http:headers>
             </http:error-response>
         </http:listener>
-        
         <!-- ✅ CORRECTION: CORS headers définis EN PREMIER -->
-        <flow-ref doc:name="Set CORS Headers" doc:id="c5e5f072-b66e-4ef1-b94b-5d5ea4c2456b" name="cors-headers"/>
-        
+        <flow-ref doc:name="Set CORS Headers" doc:id="c5e5f072-b66e-4ef1-b94b-5d5ea4c2456b" name="cors-headers" />
         <!-- ✅ CORRECTION: Gestion OPTIONS en premier pour CORS preflight -->
         <choice doc:name="Handle CORS Preflight" doc:id="42fc3975-f65b-4b27-abe4-0e032ecfff6d">
             <when expression="#[attributes.method == 'OPTIONS']">
-                <logger level="INFO" message="🔀 [Kit] CORS Preflight request from: #[attributes.headers['origin'] default 'unknown']" doc:name="Log CORS Preflight" />
+                <logger level="INFO" message="&#x1f500; [Kit] CORS Preflight request from: #[attributes.headers['origin'] default 'unknown']" doc:name="Log CORS Preflight" />
                 <ee:transform doc:name="CORS Preflight Response" doc:id="e5ea7914-7f72-44cb-93fd-cb88b6d2b92f">
                     <ee:message>
                         <ee:set-payload><![CDATA[%dw 2.0
@@ -47,25 +35,21 @@ output application/json
 }]]></ee:set-payload>
                     </ee:message>
                 </ee:transform>
-                <set-variable value="#[200]" doc:name="Set 200 OK" doc:id="407fbebd-21e7-4b4d-8aeb-6afe25a7eac6" variableName="httpStatus"/>
+                <set-variable value="#[200]" doc:name="Set 200 OK" doc:id="407fbebd-21e7-4b4d-8aeb-6afe25a7eac6" variableName="httpStatus" />
             </when>
             <otherwise>
                 <!-- Route normale pour les autres méthodes -->
                 <apikit:router config-ref="kitinterconnexionuemoa-config" />
             </otherwise>
         </choice>
-        
         <error-handler ref="global-error-handler" />
     </flow>
-
     <!-- ✅ CORRECTION: Sub-flow CORS amélioré -->
     <sub-flow name="cors-headers" doc:id="d8585bfe-a33e-4d06-9aac-613f6d370044">
-        
         <!-- ✅ NOUVEAU: Logging pour debug CORS -->
-        <set-variable value='#[{&#10;    "Access-Control-Allow-Origin": "*",&#10;    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",&#10;    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Source-Country, X-Correlation-ID, X-Source-System, X-Test-Type, X-Authorization-Source, User-Agent",&#10;    "Access-Control-Max-Age": "3600",&#10;    "Access-Control-Allow-Credentials": "false",&#10;    "Vary": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"&#10;}]' doc:name="Set Enhanced CORS Headers" doc:id="51a3edff-cc61-4a46-9b06-bef23651b856" variableName="corsHeaders"/>
-		<logger level="DEBUG" message="🔀 [Kit] CORS headers set for request from: #[attributes.headers['origin'] default 'no-origin']" doc:name="Log CORS Setup" />
+        <set-variable value="#[{&#xA;    &quot;Access-Control-Allow-Origin&quot;: &quot;*&quot;,&#xA;    &quot;Access-Control-Allow-Methods&quot;: &quot;GET, POST, PUT, DELETE, OPTIONS&quot;,&#xA;    &quot;Access-Control-Allow-Headers&quot;: &quot;Content-Type, Authorization, X-Source-Country, X-Correlation-ID, X-Source-System, X-Test-Type, X-Authorization-Source, User-Agent&quot;,&#xA;    &quot;Access-Control-Max-Age&quot;: &quot;3600&quot;,&#xA;    &quot;Access-Control-Allow-Credentials&quot;: &quot;false&quot;,&#xA;    &quot;Vary&quot;: &quot;Origin, Access-Control-Request-Method, Access-Control-Request-Headers&quot;&#xA;}]" doc:name="Set Enhanced CORS Headers" doc:id="51a3edff-cc61-4a46-9b06-bef23651b856" variableName="corsHeaders" />
+        <logger level="DEBUG" message="&#x1f500; [Kit] CORS headers set for request from: #[attributes.headers['origin'] default 'no-origin']" doc:name="Log CORS Setup" />
     </sub-flow>
-
     <!-- ✅ CONSOLE FLOW CORRIGÉ avec CORS -->
     <flow name="kitinterconnexionuemoa-console">
         <http:listener path="/console/*" config-ref="kitinterconnexionuemoa-httpListenerConfig">
@@ -77,33 +61,26 @@ output application/json
                 <http:headers><![CDATA[#[vars.outboundHeaders ++ vars.corsHeaders default vars.corsHeaders]]]></http:headers>
             </http:error-response>
         </http:listener>
-        
         <!-- CORS headers aussi pour la console -->
-        <flow-ref doc:name="Set CORS Headers" doc:id="0fcadeb6-39b2-4987-bea1-77864591fa3e" name="cors-headers"/>
-        
-        <apikit:console config-ref="kitinterconnexionuemoa-config"/>
+        <flow-ref doc:name="Set CORS Headers" doc:id="0fcadeb6-39b2-4987-bea1-77864591fa3e" name="cors-headers" />
+        <apikit:console config-ref="kitinterconnexionuemoa-config" />
         <error-handler ref="global-error-handler" />
     </flow>
-
     <!-- ✅ ENDPOINTS FLOWS avec logging amélioré -->
     <flow name="get:\health:kitinterconnexionuemoa-config">
-        <logger level="INFO" message="🏥 [Kit] Health check demandé depuis: #[attributes.headers['user-agent'] default 'unknown']" doc:name="Log Health Request" />
-        <flow-ref doc:name="Execute Health Check" doc:id="0812063f-b5f3-4743-bee7-18b0dc2dae9d" name="health-check"/>
+        <logger level="INFO" message="&#x1f3e5; [Kit] Health check demandé depuis: #[attributes.headers['user-agent'] default 'unknown']" doc:name="Log Health Request" />
+        <flow-ref doc:name="Execute Health Check" doc:id="0812063f-b5f3-4743-bee7-18b0dc2dae9d" name="health-check" />
     </flow>
-
     <flow name="post:\manifeste\transmission:application\json:kitinterconnexionuemoa-config">
-        <logger level="INFO" message="📦 [Kit] Réception manifeste depuis: #[attributes.headers['x-source-system'] default 'unknown'] (#[attributes.headers['x-source-country'] default 'unknown'])" doc:name="Log Manifeste Request" />
-        <flow-ref doc:name="Process Manifeste" doc:id="f3059fea-52c1-413d-8d36-60b6ad1a1ebb" name="receive-manifeste-from-pays-a"/>
+        <logger level="INFO" message="&#x1f4e6; [Kit] Réception manifeste depuis: #[attributes.headers['x-source-system'] default 'unknown'] (#[attributes.headers['x-source-country'] default 'unknown'])" doc:name="Log Manifeste Request" />
+        <flow-ref doc:name="Process Manifeste" doc:id="f3059fea-52c1-413d-8d36-60b6ad1a1ebb" name="receive-manifeste-from-pays-a" />
     </flow>
-
     <flow name="post:\paiement\notification:application\json:kitinterconnexionuemoa-config">
-        <logger level="INFO" message="💳 [Kit] Notification paiement depuis: #[attributes.headers['x-source-system'] default 'unknown'] (#[attributes.headers['x-source-country'] default 'unknown'])" doc:name="Log Payment Request" />
-        <flow-ref doc:name="Process Payment" doc:id="53ad1252-7086-4b77-b412-0fc6bdecff49" name="receive-payment-notification"/>
+        <logger level="INFO" message="&#x1f4b3; [Kit] Notification paiement depuis: #[attributes.headers['x-source-system'] default 'unknown'] (#[attributes.headers['x-source-country'] default 'unknown'])" doc:name="Log Payment Request" />
+        <flow-ref doc:name="Process Payment" doc:id="53ad1252-7086-4b77-b412-0fc6bdecff49" name="receive-payment-notification" />
     </flow>
-
     <flow name="post:\tracabilite\enregistrer:application\json:kitinterconnexionuemoa-config">
-        <logger level="INFO" message="📊 [Kit] Traçabilité depuis: #[attributes.headers['x-source-system'] default 'unknown']" doc:name="Log Trace Request" />
-        <flow-ref doc:name="Process Commission Trace" doc:id="b7a11845-b424-4774-b979-9605fa7beae8" name="record-commission-trace"/>
+        <logger level="INFO" message="&#x1f4ca; [Kit] Traçabilité depuis: #[attributes.headers['x-source-system'] default 'unknown']" doc:name="Log Trace Request" />
+        <flow-ref doc:name="Process Commission Trace" doc:id="b7a11845-b424-4774-b979-9605fa7beae8" name="record-commission-trace" />
     </flow>
-
 </mule>

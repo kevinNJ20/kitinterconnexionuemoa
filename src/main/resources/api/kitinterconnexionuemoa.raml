@@ -8,27 +8,164 @@ documentation:
       Cette API permet l'interconnexion des systèmes informatiques douaniers 
       des États membres de l'UEMOA dans le cadre de la mise en œuvre du régime 
       de la libre pratique.
+      
+      Format supporté: UEMOA 2025.1
+      
+      Cette version supporte le format standardisé UEMOA avec les structures
+      de manifestes conformes aux spécifications douanières UEMOA.
 
 types:
-  Manifeste:
+  ManifestUEMOA:
     type: object
     properties:
-      numeroManifeste: string
-      transporteur: string
-      portEmbarquement: string
-      portDebarquement: string
-      dateArrivee: date-only
-      marchandises: Marchandise[]
+      annee_manif: 
+        type: string
+        description: Année du manifeste
+        example: "2025"
+      bureau_manif: 
+        type: string
+        description: Code du bureau douanier
+        example: "18N"
+      numero_manif: 
+        type: number
+        description: Numéro unique du manifeste
+        example: 5016
+      code_cgt: 
+        type: string
+        description: Code CGT
+        example: "014"
+      consignataire: 
+        type: string
+        description: Nom du consignataire
+        example: "MAERSK LINE"
+      repertoire: 
+        type: string
+        description: Référence répertoire
+        example: "02402"
+      navire: 
+        type: string
+        description: Nom du navire
+        example: "MARCO POLO"
+      provenance: 
+        type: string
+        description: Port/Pays de provenance
+        example: "ROTTERDAM"
+      pavillon: 
+        type: string
+        description: Pavillon du navire
+        example: "LIBÉRIA"
+      date_arrivee: 
+        type: date-only
+        description: Date d'arrivée prévue
+        example: "2025-01-15"
+      valapprox: 
+        type: number
+        description: Valeur approximative
+        example: 0
+      nbre_article: 
+        type: number
+        description: Nombre total d'articles
+        example: 2
+      articles: ArticleUEMOA[]
   
-  Marchandise:
+  ArticleUEMOA:
     type: object
     properties:
-      codeSH: string
-      designation: string
-      poidsBrut: number
-      nombreColis: integer
-      destinataire: string
-      paysDestination: string
+      art: 
+        type: number
+        description: Numéro de l'article
+        example: 1
+      prec1: 
+        type: number
+        description: Précision 1
+        example: 0
+      prec2: 
+        type: number
+        description: Précision 2
+        example: 0
+      date_emb: 
+        type: date-only
+        description: Date d'embarquement
+        example: "2025-01-02"
+      lieu_emb: 
+        type: string
+        description: Lieu d'embarquement
+        example: "Rotterdam"
+      pays_dest: 
+        type: string
+        description: Pays de destination
+        example: "BURKINA FASO"
+      ville_dest: 
+        type: string
+        description: Ville de destination
+        example: "OUAGADOUGOU"
+      connaissement: 
+        type: string
+        description: Numéro de connaissement
+        example: "233698813"
+      expediteur: 
+        type: string
+        description: Nom de l'expéditeur
+        example: "EXPORT COMPANY LTD"
+      destinataire: 
+        type: string
+        description: Nom du destinataire
+        example: "IMPORT SARL OUAGADOUGOU"
+      voie_dest: 
+        type: string
+        description: Voie de destination
+        example: "Route terrestre"
+      ordre: 
+        type: string
+        description: À l'ordre de
+        example: "BANQUE ATLANTIQUE"
+      marchandise: 
+        type: string
+        description: Description de la marchandise
+        example: "Véhicules particuliers"
+      poids: 
+        type: number
+        description: Poids brut en kg
+        example: 18700
+      nbre_colis: 
+        type: number
+        description: Nombre de colis
+        example: 523
+      marque: 
+        type: string
+        description: Marque
+        example: "TOYOTA"
+      mode_cond: 
+        type: string
+        description: Mode de conditionnement
+        example: "COLIS (PACKAGE)"
+      nbre_conteneur: 
+        type: number
+        description: Nombre de conteneurs
+        example: 1
+      conteneurs: ConteneurUEMOA[]
+  
+  ConteneurUEMOA:
+    type: object
+    properties:
+      conteneur: 
+        type: string
+        description: Numéro du conteneur
+        example: "TCLU1758689"
+      type: 
+        type: string
+        description: Type de conteneur
+        enum: ["DRS", "REF", "OPT", "FLT"]
+        example: "DRS"
+      taille: 
+        type: string
+        description: Taille du conteneur
+        enum: ["20", "40", "45"]
+        example: "40"
+      plomb: 
+        type: string
+        description: Numéro de plomb
+        example: "AE0293467"
   
   NotificationPaiement:
     type: object
@@ -52,25 +189,52 @@ types:
 /manifeste:
   /transmission:
     post:
-      description: Réception d'un manifeste depuis un pays de prime abord
+      description: Réception d'un manifeste UEMOA depuis un pays de prime abord
       body:
         application/json:
-          type: Manifeste
+          type: ManifestUEMOA
           example: |
             {
-              "numeroManifeste": "MAN2025001",
-              "transporteur": "MAERSK LINE",
-              "portEmbarquement": "ROTTERDAM",
-              "portDebarquement": "ABIDJAN",
-              "dateArrivee": "2025-01-15",
-              "marchandises": [
+              "annee_manif": "2025",
+              "bureau_manif": "18N",
+              "numero_manif": 5016,
+              "code_cgt": "014",
+              "consignataire": "MAERSK LINE",
+              "repertoire": "02402",
+              "navire": "MARCO POLO",
+              "provenance": "ROTTERDAM",
+              "pavillon": "LIBÉRIA",
+              "date_arrivee": "2025-01-15",
+              "valapprox": 0,
+              "nbre_article": 1,
+              "articles": [
                 {
-                  "codeSH": "8703.21.10",
-                  "designation": "Véhicule particulier",
-                  "poidsBrut": 1500.00,
-                  "nombreColis": 1,
-                  "destinataire": "IMPORT SARL",
-                  "paysDestination": "BFA"
+                  "art": 1,
+                  "prec1": 0,
+                  "prec2": 0,
+                  "date_emb": "2025-01-02",
+                  "lieu_emb": "Rotterdam",
+                  "pays_dest": "BURKINA FASO",
+                  "ville_dest": "OUAGADOUGOU",
+                  "connaissement": "233698813",
+                  "expediteur": "EXPORT COMPANY LTD",
+                  "destinataire": "IMPORT SARL OUAGADOUGOU",
+                  "voie_dest": "Route terrestre",
+                  "ordre": "BANQUE ATLANTIQUE",
+                  "marchandise": "Véhicules particuliers",
+                  "poids": 1500,
+                  "nbre_colis": 1,
+                  "marque": "TOYOTA",
+                  "mode_cond": "COLIS (PACKAGE)",
+                  "nbre_conteneur": 1,
+                  "conteneurs": [
+                    {
+                      "conteneur": "TCLU1758689",
+                      "type": "DRS",
+                      "taille": "40",
+                      "plomb": "AE0293467"
+                    }
+                  ]
                 }
               ]
             }
@@ -81,8 +245,12 @@ types:
               example: |
                 {
                   "status": "SUCCESS",
-                  "message": "Manifeste transmis avec succès",
-                  "numeroManifeste": "MAN2025001",
+                  "message": "Manifeste UEMOA transmis avec succès",
+                  "numero_manif": 5016,
+                  "format": "UEMOA",
+                  "consignataire": "MAERSK LINE",
+                  "navire": "MARCO POLO",
+                  "nombre_articles": 1,
                   "timestamp": "2025-01-15T10:30:00Z"
                 }
 
@@ -96,7 +264,7 @@ types:
           example: |
             {
               "numeroDeclaration": "DEC2025001",
-              "manifesteOrigine": "MAN2025001",
+              "manifesteOrigine": "5016",
               "montantPaye": 250000.00,
               "referencePaiement": "PAY2025001",
               "datePaiement": "2025-01-15T14:30:00Z",
@@ -123,15 +291,17 @@ types:
           type: OperationTracabilite
           example: |
             {
-              "typeOperation": "TRANSMISSION_MANIFESTE",
-              "numeroOperation": "MAN2025001-20250115103000",
+              "typeOperation": "TRANSMISSION_MANIFESTE_UEMOA",
+              "numeroOperation": "5016-2025-20250115103000",
               "paysOrigine": "CIV",
               "paysDestination": "BFA",
+              "format": "UEMOA",
               "donneesMetier": {
-                "numeroManifeste": "MAN2025001",
-                "transporteur": "MAERSK LINE",
-                "nombreMarchandises": 2,
-                "valeurTotaleEstimee": 400000
+                "numero_manifeste": 5016,
+                "consignataire": "MAERSK LINE",
+                "nombre_articles": 1,
+                "poids_total_estime": 1500,
+                "valeur_approximative": 150000
               }
             }
       responses:
@@ -141,8 +311,9 @@ types:
               example: |
                 {
                   "status": "RECORDED",
-                  "message": "Opération enregistrée avec succès",
-                  "numeroOperation": "MAN2025001-20250115103000",
+                  "message": "Opération UEMOA enregistrée avec succès",
+                  "numeroOperation": "5016-2025-20250115103000",
+                  "format": "UEMOA",
                   "timestamp": "2025-01-15T10:30:00Z"
                 }
 
@@ -157,6 +328,16 @@ types:
               {
                 "service": "Kit Interconnexion UEMOA",
                 "status": "UP",
-                "version": "1.0.0-POC",
-                "timestamp": "2025-01-15T10:00:00Z"
+                "version": "1.0.0-UEMOA",
+                "format_support": "UEMOA_2025.1",
+                "timestamp": "2025-01-15T10:00:00Z",
+                "uemoa": {
+                  "compliance": true,
+                  "version": "2025.1",
+                  "supported_fields": [
+                    "annee_manif", "bureau_manif", "numero_manif", 
+                    "code_cgt", "consignataire", "navire", "provenance", 
+                    "pavillon", "articles", "conteneurs"
+                  ]
+                }
               }

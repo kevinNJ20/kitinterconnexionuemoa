@@ -9,67 +9,94 @@
         http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
         http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
 
-    <!-- ✅ FLOW 1: Réception Manifeste avec Supabase REST API -->
-    <sub-flow name="receive-manifeste-from-pays-a" doc:id="2d49968b-9285-4fd1-8cb7-4b92f0d5db0e" >
+    <!-- ✅ FLOW 1: Réception Manifeste FORMAT UEMOA avec Supabase REST API -->
+    <sub-flow name="receive-manifeste-from-pays-a" doc:id="676006f6-9481-4dd8-b0fa-f8e9fec8cccf" >
         <set-variable value="#['KIT_' ++ now() as String {format: 'yyyyMMddHHmmss'} ++ '_' ++ (random() * 1000) as String {format: '000'}]" 
                       doc:name="Set Correlation ID" variableName="correlationId"/>
         
         <set-variable value="#[payload]" doc:name="Set incoming" variableName="incoming"/>
         
-        <logger level="INFO" message="📨 [Kit] Réception manifeste: #[vars.incoming.numeroManifeste] depuis Pays A" doc:name="Log Manifeste Reception" />
+        <logger level="INFO" message="📨 [Kit] Réception manifeste UEMOA: #[vars.incoming.numero_manif] depuis Pays A" doc:name="Log Manifeste Reception" />
         
-        <!-- ✅ Préparation données pour Supabase REST API -->
-        <ee:transform doc:name="Transform for Supabase REST" doc:id="d97cf086-35e8-4f97-bdb9-acce899840db">
+        <!-- ✅ Préparation données pour Supabase REST API - FORMAT UEMOA -->
+        <ee:transform doc:name="Transform UEMOA for Supabase REST" doc:id="795a2a7e-addc-4424-b5c0-22b22ad969f7">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 {
-    numero_manifeste: vars.incoming.numeroManifeste,
-    transporteur: vars.incoming.transporteur,
-    port_embarquement: vars.incoming.portEmbarquement,
-    port_debarquement: vars.incoming.portDebarquement,
-    date_arrivee: vars.incoming.dateArrivee,
+    // ✅ Nouveaux champs format UEMOA
+    numero_manifeste: vars.incoming.numero_manif as String,
+    annee_manifeste: vars.incoming.annee_manif,
+    bureau_manifeste: vars.incoming.bureau_manif,
+    code_cgt: vars.incoming.code_cgt,
+    consignataire: vars.incoming.consignataire,
+    repertoire: vars.incoming.repertoire,
+    
+    // ✅ Informations navire UEMOA
+    navire: vars.incoming.navire,
+    provenance: vars.incoming.provenance,
+    pavillon: vars.incoming.pavillon,
+    date_arrivee: vars.incoming.date_arrivee,
+    valeur_approximative: vars.incoming.valapprox,
+    
+    // ✅ Métadonnées
     pays_origine: "CIV",  // Côte d'Ivoire par défaut
-    pays_destination: vars.incoming.marchandises[0].paysDestination,
+    pays_destination: vars.incoming.articles[0].pays_dest,
+    nombre_articles: vars.incoming.nbre_article,
+    
+    // ✅ Données complètes format UEMOA
     data_json: {
-        numeroManifeste: vars.incoming.numeroManifeste,
-        transporteur: vars.incoming.transporteur,
-        marchandises: vars.incoming.marchandises,
+        format: "UEMOA",
+        version: "2025.1",
+        manifeste_complet: vars.incoming,
+        articles_summary: vars.incoming.articles map ((article, index) -> {
+            article_numero: article.art,
+            description: article.marchandise,
+            destination: article.pays_dest,
+            poids_total: article.poids,
+            conteneurs_count: sizeOf(article.conteneurs default [])
+        }),
         correlationId: vars.correlationId,
-        dateReception: now()
+        dateReception: now(),
+        source_system: "PAYS_A_UEMOA"
     },
     date_reception: now(),
-    statut: "RECU"
+    statut: "RECU_UEMOA"
 }]]></ee:set-payload>
             </ee:message>
         </ee:transform>
         
         <!-- ✅ Insertion via Supabase REST API - UTILISE LES VARIABLES YAML -->
-        <http:request method="POST" doc:name="Insert Manifeste via REST" config-ref="supabaseRestConfig" 
+        <http:request method="POST" doc:name="Insert Manifeste UEMOA via REST" config-ref="supabaseRestConfig" 
                       path="${supabase.rest.base_path}${supabase.rest.endpoints.manifestes}">
             <!-- Payload déjà préparé dans le transform précédent -->
         </http:request>
         
-        <logger level="INFO" message="✅ [Kit] Manifeste inséré via REST API: #[vars.incoming.numeroManifeste]" doc:name="Log Insert Success" />
+        <logger level="INFO" message="✅ [Kit] Manifeste UEMOA inséré via REST API: #[vars.incoming.numero_manif]" doc:name="Log Insert Success" />
         
         <flow-ref name="route-to-destination-country" doc:name="Route to Destination Country" />
         <flow-ref name="notify-commission-uemoa" doc:name="Notify Commission UEMOA" />
         
-        <ee:transform doc:name="Success Response" doc:id="776c14a0-c4b9-4a9b-9b67-91ae0d5fefe6">
+        <ee:transform doc:name="Success Response UEMOA" doc:id="cb04616c-96aa-4f45-b4b1-ef9c55e5a2dd">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 {
     status: "SUCCESS",
-    message: "Manifeste transmis avec succès via REST API",
-    numeroManifeste: vars.incoming.numeroManifeste,
+    message: "Manifeste UEMOA transmis avec succès via REST API",
+    numero_manif: vars.incoming.numero_manif,
+    format: "UEMOA",
+    consignataire: vars.incoming.consignataire,
+    navire: vars.incoming.navire,
+    nombre_articles: vars.incoming.nbre_article,
     correlationId: vars.correlationId,
     timestamp: now(),
     supabase: {
-        endpoint: "${supabase.rest.base_path}${supabase.rest.endpoints.manifestes}",
-        method: "POST"
+        endpoint: Mule::p('supabase.rest.base_path') ++ Mule::p('supabase.rest.endpoints.manifestes'),
+        method: "POST",
+        format_store: "UEMOA_2025"
     }
 }]]></ee:set-payload>
             </ee:message>
@@ -78,95 +105,157 @@ output application/json
         <set-variable value="#[200]" doc:name="Set Success Status" variableName="http.status" />
     </sub-flow>
 
-    <!-- FLOW 2: Routage vers Pays de Destination -->
-    <sub-flow name="route-to-destination-country" doc:id="60d331bf-8b2e-4978-a138-586b50c1b673" >
-        <logger level="INFO" message="🚀 [Kit] Routage vers pays destination: #[vars.incoming.marchandises[0].paysDestination]" doc:name="Log Routing" />
+    <!-- FLOW 2: Routage vers Pays de Destination - FORMAT UEMOA -->
+    <sub-flow name="route-to-destination-country" doc:id="f48e119e-c429-45f6-b4b8-277c8de1384c" >
+        <logger level="INFO" message="🚀 [Kit] Routage vers pays destination UEMOA: #[vars.incoming.articles[0].pays_dest]" doc:name="Log Routing" />
         
-        <ee:transform doc:name="Transform for Destination System" doc:id="a577f706-7335-42b2-8e4c-5c5f5f5e9621">
+        <ee:transform doc:name="Transform UEMOA for Destination System" doc:id="57db70c7-b530-40d9-ba6c-ddb3eeb0ff1e">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 {
+    // ✅ Format adapté pour pays de destination avec données UEMOA
     manifeste: {
-        numeroOrigine: vars.incoming.numeroManifeste,
-        transporteur: vars.incoming.transporteur,
-        portOrigine: vars.incoming.portEmbarquement,
-        portDestination: vars.incoming.portDebarquement,
-        dateArrivee: vars.incoming.dateArrivee,
-        paysOrigine: "CIV"
+        format: "UEMOA",
+        numero_origine: vars.incoming.numero_manif,
+        annee_manifeste: vars.incoming.annee_manif,
+        bureau_origine: vars.incoming.bureau_manif,
+        consignataire: vars.incoming.consignataire,
+        navire: vars.incoming.navire,
+        provenance: vars.incoming.provenance,
+        pavillon: vars.incoming.pavillon,
+        date_arrivee: vars.incoming.date_arrivee,
+        paysOrigine: "CIV",
+        code_cgt: vars.incoming.code_cgt
     },
-    marchandises: vars.incoming.marchandises map ((item, index) -> {
+    
+    // ✅ Articles transformés pour le pays de destination
+    articles: vars.incoming.articles map ((article, index) -> {
         position: index + 1,
-        codeTarifaire: item.codeSH,
-        description: item.designation,
-        poidsNet: item.poidsBrut,
-        quantite: item.nombreColis,
-        importateur: item.destinataire,
-        valeurEstimee: 0
+        numero_article: article.art,
+        
+        // Informations marchandise
+        description: article.marchandise,
+        poids_brut: article.poids,
+        nombre_colis: article.nbre_colis,
+        marque: article.marque,
+        mode_conditionnement: article.mode_cond,
+        
+        // Informations expédition
+        date_embarquement: article.date_emb,
+        lieu_embarquement: article.lieu_emb,
+        connaissement: article.connaissement,
+        expediteur: article.expediteur,
+        
+        // Informations destination
+        destinataire: article.destinataire,
+        ville_destination: article.ville_dest,
+        voie_destination: article.voie_dest,
+        ordre: article.ordre,
+        
+        // Conteneurs détaillés
+        conteneurs: article.conteneurs map ((conteneur, conteneurIndex) -> {
+            numero: conteneur.conteneur,
+            "type": conteneur."type",
+            taille: conteneur.taille,
+            plomb: conteneur.plomb
+        }),
+        nombre_conteneurs: article.nbre_conteneur,
+        
+        // Précisions additionnelles
+        precision_1: article.prec1,
+        precision_2: article.prec2
     })
 }]]></ee:set-payload>
             </ee:message>
         </ee:transform>
         
         <!-- ✅ UTILISE LES VARIABLES YAML pour l'endpoint -->
-        <http:request method="POST" doc:name="Send to Destination Country" 
+        <http:request method="POST" doc:name="Send UEMOA to Destination Country" 
                       path="${systeme.paysB.endpoints.manifeste}" config-ref="paysBConfig">
             <http:headers><![CDATA[#[{
     "Content-Type": "application/json",
     "X-Source-Country": "CIV",
-    "X-Source-System": "KIT_INTERCONNEXION", 
-    "X-Correlation-ID": vars.correlationId
+    "X-Source-System": "KIT_INTERCONNEXION_UEMOA", 
+    "X-Correlation-ID": vars.correlationId,
+    "X-Manifeste-Format": "UEMOA"
 }]]]></http:headers>
         </http:request>
         
-        <logger level="INFO" message="✅ [Kit] Manifeste envoyé avec succès vers pays destination" doc:name="Log Routing Success" />
+        <logger level="INFO" message="✅ [Kit] Manifeste UEMOA envoyé avec succès vers pays destination" doc:name="Log Routing Success" />
     </sub-flow>
 
-    <!-- FLOW 3: Notification Commission UEMOA -->
-    <sub-flow name="notify-commission-uemoa" doc:id="79e9283d-2bf5-40be-a377-1609560747b9" >
+    <!-- FLOW 3: Notification Commission UEMOA - FORMAT ENRICHI -->
+    <sub-flow name="notify-commission-uemoa" doc:id="f526d669-a1a0-417b-a659-260cd4220c6e" >
         <async doc:name="Async Commission Notification">
-            <logger level="INFO" message="📊 [Kit] Notification Commission UEMOA pour: #[vars.incoming.numeroManifeste]" doc:name="Log Commission Notification" />
+            <logger level="INFO" message="📊 [Kit] Notification Commission UEMOA pour manifeste: #[vars.incoming.numero_manif]" doc:name="Log Commission Notification" />
             
-            <ee:transform doc:name="Transform for Commission" doc:id="f4c46e4e-0124-4449-8249-7ce2971850c6">
+            <ee:transform doc:name="Transform UEMOA for Commission" doc:id="a2690e62-7c24-4fd1-8f82-30d457ef7091">
                 <ee:message>
                     <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 {
-    typeOperation: "TRANSMISSION_MANIFESTE",
-    numeroOperation: vars.incoming.numeroManifeste ++ "-" ++ now() as String {format: "yyyyMMddHHmmss"},
+    typeOperation: "TRANSMISSION_MANIFESTE_UEMOA",
+    numeroOperation: vars.incoming.numero_manif ++ "-" ++ vars.incoming.annee_manif ++ "-" ++ now() as String {format: "yyyyMMddHHmmss"},
+    format: "UEMOA",
     paysOrigine: "CIV",
-    paysDestination: vars.incoming.marchandises[0].paysDestination,
+    paysDestination: vars.incoming.articles[0].pays_dest,
+    
+    // ✅ Données métier enrichies format UEMOA
     donneesMetier: {
-        numeroManifeste: vars.incoming.numeroManifeste,
-        transporteur: vars.incoming.transporteur,
-        nombreMarchandises: sizeOf(vars.incoming.marchandises),
-        valeurTotaleEstimee: sum(vars.incoming.marchandises.poidsBrut) * 100
+        numero_manifeste: vars.incoming.numero_manif,
+        annee_manifeste: vars.incoming.annee_manif,
+        bureau_manifeste: vars.incoming.bureau_manif,
+        consignataire: vars.incoming.consignataire,
+        navire: vars.incoming.navire,
+        provenance: vars.incoming.provenance,
+        pavillon: vars.incoming.pavillon,
+        
+        // Statistiques agrégées
+        nombre_articles: vars.incoming.nbre_article,
+        poids_total_estime: sum(vars.incoming.articles.poids),
+        nombre_conteneurs_total: sum(vars.incoming.articles.nbre_conteneur),
+        valeur_approximative: vars.incoming.valapprox,
+        
+        // Destinations multiples
+        pays_destinations: vars.incoming.articles.pays_dest distinctBy $,
+        villes_destinations: vars.incoming.articles.ville_dest distinctBy $,
+        
+        // Types de marchandises
+        types_marchandises: vars.incoming.articles.marchandise distinctBy $,
+        
+        // Informations conteneurs
+        types_conteneurs: flatten(vars.incoming.articles.conteneurs)."type" distinctBy $,
+        tailles_conteneurs: flatten(vars.incoming.articles.conteneurs).taille distinctBy $
     },
+    
     horodatage: now(),
-    source: "KIT_INTERCONNEXION"
+    source: "KIT_INTERCONNEXION_UEMOA",
+    version_format: "UEMOA_2025.1"
 }]]></ee:set-payload>
                 </ee:message>
             </ee:transform>
             
             <!-- ✅ UTILISE LES VARIABLES YAML pour l'endpoint -->
-            <http:request method="POST" doc:name="Send to Commission" 
+            <http:request method="POST" doc:name="Send to Commission UEMOA" 
                           path="${commission.uemoa.endpoints.tracabilite}" config-ref="commissionConfig">
                 <http:headers><![CDATA[#[{
     "Authorization": "Bearer ${commission.uemoa.auth.token}",
     "Content-Type": "application/json",
-    "X-Source-System": "KIT_INTERCONNEXION",
-    "X-Correlation-ID": vars.correlationId
+    "X-Source-System": "KIT_INTERCONNEXION_UEMOA",
+    "X-Correlation-ID": vars.correlationId,
+    "X-Format": "UEMOA"
 }]]]></http:headers>
             </http:request>
             
-            <logger level="INFO" message="✅ [Kit] Commission UEMOA notifiée avec succès" doc:name="Log Commission Success" />
+            <logger level="INFO" message="✅ [Kit] Commission UEMOA notifiée avec succès (format UEMOA)" doc:name="Log Commission Success" />
         </async>
     </sub-flow>
 
     <!-- ✅ FLOW 4: Réception Notification Paiement avec Supabase REST API -->
-    <sub-flow name="receive-payment-notification" doc:id="c4f92f1f-e693-4d1f-b491-5ec49bd6c631" >
+    <sub-flow name="receive-payment-notification" doc:id="acd305bc-43d0-4179-a8e4-3a115974ceca" >
         <set-variable value="#['PAY_' ++ now() as String {format: 'yyyyMMddHHmmss'} ++ '_' ++ (random() * 1000) as String {format: '000'}]" 
                       doc:name="Set Payment Correlation ID" variableName="correlationId"/>
         
@@ -175,7 +264,7 @@ output application/json
         <logger level="INFO" message="💳 [Kit] Réception notification paiement: #[vars.incoming.numeroDeclaration]" doc:name="Log Payment Reception" />
         
         <!-- ✅ Préparation données paiement pour Supabase REST API -->
-        <ee:transform doc:name="Transform Payment for Supabase REST" doc:id="5f8a29cd-78b7-4d64-be65-f7add54dc955">
+        <ee:transform doc:name="Transform Payment for Supabase REST" doc:id="32ecb9de-488d-4195-9ddf-921ea5377378">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
@@ -204,7 +293,7 @@ output application/json
         
         <flow-ref name="authorize-release-to-origin" doc:name="Authorize Release to Origin" />
         
-        <ee:transform doc:name="Payment Confirmation Response" doc:id="ded9588c-7a9f-481e-9dea-7d0e21115ec3">
+        <ee:transform doc:name="Payment Confirmation Response" doc:id="90f7bdef-6946-47f1-8023-79bc336d7d81">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
@@ -220,50 +309,57 @@ output application/json
         </ee:transform>
     </sub-flow>
 
-    <!-- FLOW 5: Autorisation Mainlevée -->
-    <sub-flow name="authorize-release-to-origin" doc:id="99dc5687-8aed-48f8-9b7f-6a836d7229db" >
+    <!-- FLOW 5: Autorisation Mainlevée - FORMAT UEMOA -->
+    <sub-flow name="authorize-release-to-origin" doc:id="72ebe42d-10a7-427f-b1b8-dad353f9021e" >
         <logger level="INFO" message="🔓 [Kit] Autorisation mainlevée pour: #[vars.incoming.manifesteOrigine]" doc:name="Log Release Authorization" />
         
-        <ee:transform doc:name="Transform Release Authorization" doc:id="c9d09bdc-9929-46c5-b1c6-15caf0bd2a89">
+        <ee:transform doc:name="Transform Release Authorization UEMOA" doc:id="1fac44a9-5646-4dcd-b7b4-92de2375471e">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 {
     autorisationMainlevee: {
+        format: "UEMOA",
         numeroManifeste: vars.incoming.manifesteOrigine,
         numeroDeclaration: vars.incoming.numeroDeclaration,
         montantAcquitte: vars.incoming.montantPaye,
         paysDeclarant: vars.incoming.paysDeclarant,
         dateAutorisation: now(),
-        referenceAutorisation: "AUTH-" ++ vars.incoming.numeroDeclaration ++ "-" ++ (now() as String {format: "yyyyMMddHHmmss"}),
-        statut: "AUTORISE"
+        referenceAutorisation: "AUTH-UEMOA-" ++ vars.incoming.numeroDeclaration ++ "-" ++ (now() as String {format: "yyyyMMddHHmmss"}),
+        statut: "AUTORISE",
+        
+        // ✅ Informations additionnelles UEMOA
+        typeAutorisation: "MAINLEVEE_INTER_PAYS",
+        sourceKit: "KIT_INTERCONNEXION_UEMOA",
+        conformiteUEMOA: true
     }
 }]]></ee:set-payload>
             </ee:message>
         </ee:transform>
         
         <!-- ✅ UTILISE LES VARIABLES YAML pour l'endpoint -->
-        <http:request method="POST" doc:name="Send Release Authorization" 
+        <http:request method="POST" doc:name="Send Release Authorization UEMOA" 
                       path="${systeme.paysA.endpoints.mainlevee}" config-ref="paysAConfig">
             <http:headers><![CDATA[#[{
     "X-Correlation-ID": vars.correlationId,
     "Content-Type": "application/json",
-    "X-Authorization-Source": "KIT_INTERCONNEXION"
+    "X-Authorization-Source": "KIT_INTERCONNEXION_UEMOA",
+    "X-Format": "UEMOA"
 }]]]></http:headers>
         </http:request>
         
-        <logger level="INFO" message="✅ [Kit] Autorisation mainlevée envoyée avec succès" doc:name="Log Release Success" />
+        <logger level="INFO" message="✅ [Kit] Autorisation mainlevée UEMOA envoyée avec succès" doc:name="Log Release Success" />
     </sub-flow>
 
     <!-- ✅ FLOW 6: Traçabilité Commission UEMOA avec Supabase REST API -->
-    <sub-flow name="record-commission-trace" doc:id="3e222122-abe0-40b5-9747-b75c6bdeb887">
+    <sub-flow name="record-commission-trace" doc:id="72c735e6-4d49-4cec-aaa3-f9e0ac91f8a2">
         <set-variable value="#[payload]" doc:name="Set incoming" variableName="incoming" />
         
         <logger level="INFO" message="📊 [Kit] Réception traçabilité Commission UEMOA: #[vars.incoming.numeroOperation]" doc:name="Log Commission Trace" />
         
         <!-- ✅ Préparation traçabilité pour Supabase REST API -->
-        <ee:transform doc:name="Transform Trace for Supabase REST" doc:id="5649f41e-c01b-4138-bf36-f2ff037048b3">
+        <ee:transform doc:name="Transform Trace UEMOA for Supabase REST" doc:id="819f9ed3-1a40-47a8-a9a6-e00a833b6255">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
@@ -273,6 +369,8 @@ output application/json
     pays_source: vars.incoming.paysOrigine,
     pays_destination: vars.incoming.paysDestination,
     reference_operation: vars.incoming.numeroOperation,
+    format_donnees: vars.incoming.format default "UEMOA",
+    version_format: vars.incoming.version_format default "UEMOA_2025.1",
     payload_entrant: vars.incoming,
     statut_traitement: "ENREGISTRE",
     date_debut: now()
@@ -281,25 +379,27 @@ output application/json
         </ee:transform>
         
         <!-- ✅ Insertion traçabilité via Supabase REST API - UTILISE LES VARIABLES YAML -->
-        <http:request method="POST" doc:name="Insert Trace via REST" config-ref="supabaseRestConfig" 
+        <http:request method="POST" doc:name="Insert Trace UEMOA via REST" config-ref="supabaseRestConfig" 
                       path="${supabase.rest.base_path}${supabase.rest.endpoints.tracabilite}">
             <!-- Payload déjà préparé dans le transform précédent -->
         </http:request>
         
-        <ee:transform doc:name="Commission Trace Response" doc:id="48a9fcf9-8e02-4bc4-a445-fdc5461805b5">
+        <ee:transform doc:name="Commission Trace Response UEMOA" doc:id="26063168-213f-47c8-a5e4-13eb28efd26d">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 {
     status: "RECORDED",
-    message: "Opération de traçabilité enregistrée avec succès via REST API",
+    message: "Opération de traçabilité UEMOA enregistrée avec succès via REST API",
     numeroOperation: vars.incoming.numeroOperation,
     typeOperation: vars.incoming.typeOperation,
+    format: vars.incoming.format default "UEMOA",
     timestamp: now(),
     commission: {
         statut: "ACQUITTE",
-        horodatage: now()
+        horodatage: now(),
+        conformite_uemoa: true
     }
 }]]></ee:set-payload>
             </ee:message>
@@ -307,11 +407,11 @@ output application/json
         
         <set-variable value="#[200]" doc:name="Set Success Status" variableName="http.status" />
         
-        <logger level="INFO" message="✅ [Kit] Traçabilité Commission enregistrée via REST API" doc:name="Log Trace Success" />
+        <logger level="INFO" message="✅ [Kit] Traçabilité Commission UEMOA enregistrée via REST API" doc:name="Log Trace Success" />
     </sub-flow>
 
-    <!-- ✅ FLOW 7: Health Check avec test Supabase REST API -->
-    <sub-flow name="health-check" doc:id="2052aa94-0642-4a57-866e-64e9298c124d" >
+    <!-- ✅ FLOW 7: Health Check avec test Supabase REST API et support UEMOA -->
+    <sub-flow name="health-check" doc:id="b1052d95-77d8-4785-a0d4-b8453bab57b9" >
         <!-- Test de connectivité Supabase -->
         <try doc:name="Test Supabase Connection">
             <!-- ✅ UTILISE LES VARIABLES YAML pour tester la connectivité -->
@@ -326,7 +426,7 @@ output application/json
                 </on-error-continue>
             </error-handler>
         </try>
-		<ee:transform doc:name="Health Status Response" doc:id="69f860ec-1e73-4ad2-b4ee-767eb63b0388">
+		<ee:transform doc:name="Health Status Response UEMOA" doc:id="d16a70b2-a479-4161-b7fb-84d57d996a1f">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
@@ -334,7 +434,8 @@ output application/json
 {
     service: "Kit Interconnexion UEMOA",
     status: "UP",
-    version: "1.0.0-REST",
+    version: "1.0.0-UEMOA",
+    format_support: "UEMOA_2025.1",
     timestamp: now(),
     database: {
         "type": "Supabase REST API",
@@ -351,6 +452,7 @@ output application/json
     },
     configuration: {
         approach: "REST_API",
+        format: "UEMOA",
         timeout: Mule::p('external.timeout.connection') ++ " ms",
         retryAttempts: Mule::p('retry.attempts'),
         corsEnabled: Mule::p('cors.enabled')
@@ -368,22 +470,34 @@ output application/json
         },
         paysA: {
             host: Mule::p('systeme.paysA.host'),
-            status: "MONITORED"
+            status: "MONITORED",
+            format_support: "UEMOA"
         },
         paysB: {
             host: Mule::p('systeme.paysB.host'),
-            status: "MONITORED"
+            status: "MONITORED",
+            format_support: "UEMOA"
         },
         commission: {
             host: Mule::p('commission.uemoa.host'),
-            status: "MONITORED"
+            status: "MONITORED",
+            format_support: "UEMOA"
         }
+    },
+    uemoa: {
+        compliance: true,
+        version: "2025.1",
+        supported_fields: [
+            "annee_manif", "bureau_manif", "numero_manif", "code_cgt",
+            "consignataire", "navire", "provenance", "pavillon",
+            "articles", "conteneurs"
+        ]
     }
 }]]></ee:set-payload>
             </ee:message>
         </ee:transform>
         
-        <logger level="INFO" message="🏥 [Kit] Health check effectué - Supabase: #[vars.supabaseStatus]" doc:name="Log Health Check" />
+        <logger level="INFO" message="🏥 [Kit] Health check effectué - Supabase: #[vars.supabaseStatus] - Format: UEMOA" doc:name="Log Health Check" />
     </sub-flow>
 
 </mule>

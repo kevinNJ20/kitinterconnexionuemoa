@@ -39,10 +39,7 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
 	
 	<!-- CORRECTION: Configuration HTTP Request pour Pays A - SANS PORT EXPLICITE -->
 	<http:request-config name="paysAConfig" doc:name="HTTP Request configuration" doc:id="e5417815-7b24-4439-a65b-82d154c8db91" >
-		<http:request-connection host="${systeme.paysA.host}" protocol="HTTPS">
-			<tls:context >
-				<tls:trust-store insecure="true" />
-			</tls:context>
+		<http:request-connection host="${systeme.paysA.host}" port="${systeme.paysA.port}">
 			<http:authentication >
 				<http:basic-authentication username="admin" password="admin" />
 			</http:authentication>
@@ -51,19 +48,13 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
 	
 	<!-- CORRECTION: Configuration HTTP Request pour Pays B - SANS PORT EXPLICITE -->
 	<http:request-config name="paysBConfig" doc:name="HTTP Request configuration" doc:id="05f90f5a-3e42-48a3-81c5-fd65d50fcbcc" >
-		<http:request-connection host="${systeme.paysB.host}" protocol="HTTPS">
-			<tls:context >
-				<tls:trust-store insecure="true" />
-			</tls:context>
+		<http:request-connection host="${systeme.paysB.host}" port="${systeme.paysB.port}">
 		</http:request-connection>
 	</http:request-config>
 	
 	<!-- CORRECTION: Configuration HTTP Request pour Commission - SANS PORT EXPLICITE -->
 	<http:request-config name="commissionConfig" doc:name="HTTP Request configuration" doc:id="48c0290c-683e-4651-9923-119bfc2a1093" >
-		<http:request-connection host="${commission.uemoa.host}" protocol="HTTPS">
-			<tls:context >
-				<tls:trust-store insecure="true" />
-			</tls:context>
+		<http:request-connection host="${commission.uemoa.host}" port="${commission.uemoa.port}">
 		</http:request-connection>
 	</http:request-config>
 	

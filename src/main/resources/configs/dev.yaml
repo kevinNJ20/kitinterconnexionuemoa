@@ -19,8 +19,8 @@ api:
 systeme:
   paysA:
     # ⚠️ REMPLACER par l'URL Vercel réelle de Pays A
-    host: "simulateur-pays-a-cotier.vercel.app"  # ← URL à adapter selon votre déploiement
-    port: "443"
+    host: "localhost"  # ← URL à adapter selon votre déploiement
+    port: "3001"
     url: "https://simulateur-pays-a-cotier.vercel.app"
     endpoints:
       health: "/api/health"
@@ -28,8 +28,8 @@ systeme:
       
   paysB:
     # ⚠️ REMPLACER par l'URL Vercel réelle de Pays B
-    host: "simulateur-pays-b-hinterland.vercel.app"  # ← URL à adapter selon votre déploiement
-    port: "443"
+    host: "localhost"  # ← URL à adapter selon votre déploiement
+    port: "3002"
     url: "https://simulateur-pays-b-hinterland.vercel.app"
     endpoints:
       health: "/api/health"
@@ -39,8 +39,8 @@ systeme:
 commission:
   uemoa:
     # ⚠️ REMPLACER par l'URL Vercel réelle de Commission UEMOA
-    host: "simulateur-commission-uemoa.vercel.app"  # ← URL à adapter selon votre déploiement
-    port: "443"
+    host: "localhost"  # ← URL à adapter selon votre déploiement
+    port: "3003"
     url: "https://simulateur-commission-uemoa.vercel.app"
     endpoints:
       health: "/api/health"

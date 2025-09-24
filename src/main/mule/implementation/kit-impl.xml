@@ -9,132 +9,132 @@
         http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
         http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
 
-	<!-- ✅ BATCH FLOW: Récupération des apurements depuis Supabase vers Pays A -->
-    <!-- ✅ FLOW 1: Réception Manifeste FORMAT UEMOA avec Supabase REST API -->
-    <sub-flow name="receive-manifeste-from-pays-a" doc:id="676006f6-9481-4dd8-b0fa-f8e9fec8cccf" >
-        <set-variable value="#['KIT_' ++ now() as String {format: 'yyyyMMddHHmmss'} ++ '_' ++ (random() * 1000) as String {format: '000'}]" 
+    <!-- ✅ WORKFLOW LIBRE PRATIQUE - 21 ÉTAPES -->
+    
+    <!-- ✅ ÉTAPES 4-5: Réception Manifeste depuis Sénégal (Pays A) -->
+    <sub-flow name="receive-manifeste-from-senegal" doc:id="73ab0f78-4511-4eec-9892-1e721030e160">
+        <set-variable value="#['KIT_SEN_' ++ now() as String {format: 'yyyyMMddHHmmss'} ++ '_' ++ (random() * 1000) as String {format: '000'}]" 
                       doc:name="Set Correlation ID" variableName="correlationId"/>
         
         <set-variable value="#[payload]" doc:name="Set incoming" variableName="incoming"/>
         
-        <logger level="INFO" message="📨 [Kit] Réception manifeste UEMOA: #[vars.incoming.numero_manif] depuis Pays A" doc:name="Log Manifeste Reception" />
+        <logger level="INFO" message="📨 [Kit] ÉTAPES 4-5: Réception manifeste UEMOA depuis Sénégal (Port de Dakar): #[vars.incoming.numero_manif]" doc:name="Log Manifeste Reception" />
         
-        <!-- ✅ Préparation données pour Supabase REST API - FORMAT UEMOA -->
-        <ee:transform doc:name="Transform UEMOA for Supabase REST" doc:id="795a2a7e-addc-4424-b5c0-22b22ad969f7">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
+        <!-- ✅ Validation format UEMOA du Sénégal -->
+        <choice doc:name="Validate UEMOA Format">
+            <when expression="#[vars.incoming.format_type == 'UEMOA' or vars.incoming.numero_manif != null]">
+                
+                <!-- ✅ Stockage dans Supabase pour traçabilité -->
+                <ee:transform doc:name="Transform UEMOA for Supabase" doc:id="49a309ab-4421-4cff-8b40-25ea57d4d2f4">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 {
-    // ✅ CORRECTION: Noms de colonnes conformes au schéma
+    // ✅ Conformité schéma Supabase
     numero_manifeste: vars.incoming.numero_manif as String,
     annee_manif: vars.incoming.annee_manif,
     bureau_manif: vars.incoming.bureau_manif,
-    numero_manif: vars.incoming.numero_manif as Number,
-    code_cgt: vars.incoming.code_cgt,
     consignataire: vars.incoming.consignataire,
-    repertoire: vars.incoming.repertoire,
+    transporteur: vars.incoming.consignataire,
+    format_type: "UEMOA",
     
-    // ✅ CORRECTION: Champs obligatoires ajoutés
-    transporteur: vars.incoming.consignataire, // Utiliser consignataire comme transporteur si pas fourni
-    format_type: "UEMOA", // ✅ OBLIGATOIRE pour respecter les contraintes
-    version_uemoa: "2025.1",
-    
-    // ✅ Informations navire UEMOA - noms conformes
+    // ✅ Informations navire
     navire: vars.incoming.navire,
     provenance: vars.incoming.provenance,
     pavillon: vars.incoming.pavillon,
     date_arrivee: vars.incoming.date_arrivee,
-    valapprox: vars.incoming.valapprox, // ✅ CORRECTION: nom correct
-    nbre_article: vars.incoming.nbre_article, // ✅ CORRECTION: nom correct
+    valapprox: vars.incoming.valapprox,
+    nbre_article: vars.incoming.nbre_article,
     
-    // ✅ CORRECTION: Codes pays conformes (3 caractères max)
-    pays_origine: "CIV",  // Côte d'Ivoire
+    // ✅ Pays selon workflow UEMOA
+    pays_origine: "SEN",  // Sénégal
     pays_destination: (
-        if (vars.incoming.articles[0].pays_dest contains "SÉNÉGAL") "SEN"
+        if (vars.incoming.articles[0].pays_dest contains "MALI") "MLI"
         else if (vars.incoming.articles[0].pays_dest contains "BURKINA") "BFA"
-        else if (vars.incoming.articles[0].pays_dest contains "MALI") "MLI"
         else if (vars.incoming.articles[0].pays_dest contains "NIGER") "NER"
-        else if (vars.incoming.articles[0].pays_dest contains "TOGO") "TGO"
-        else if (vars.incoming.articles[0].pays_dest contains "BENIN") "BEN"
-        else if (vars.incoming.articles[0].pays_dest contains "GUINÉE") "GIN"
-        else vars.incoming.articles[0].pays_dest[0 to 2] // Prendre les 3 premiers caractères
+        else "MLI" // Mali par défaut pour ce workflow
     ),
     
-    // ✅ Données complètes format UEMOA
+    // ✅ Données complètes workflow étapes 4-5
     data_json: {
         format: "UEMOA",
         version: "2025.1",
         manifeste_complet: vars.incoming,
-        articles_summary: vars.incoming.articles map ((article, index) -> {
+        etape_workflow: 5,
+        pays_origine: "Sénégal",
+        port_origine: "Port de Dakar",
+        articles_destination: vars.incoming.articles map ((article, index) -> {
             article_numero: article.art,
             description: article.marchandise,
             destination: article.pays_dest,
-            poids_total: article.poids,
-            conteneurs_count: sizeOf(article.conteneurs default [])
+            ville_destination: article.ville_dest,
+            poids: article.poids,
+            destinataire: article.destinataire
         }),
         correlationId: vars.correlationId,
-        dateReception: now(),
-        source_system: "PAYS_A_UEMOA"
+        date_reception_kit: now(),
+        source_system: "SENEGAL_PORT_DAKAR"
     },
     date_reception: now() as String { format: "yyyy-MM-dd'T'HH:mm:ssZ" },
-    statut: "RECU_UEMOA"
+    statut: "RECU_KIT_UEMOA"
 }]]></ee:set-payload>
-            </ee:message>
-        </ee:transform>
-        
-        <!-- ✅ Insertion via Supabase REST API - UTILISE LES VARIABLES YAML -->
-        <http:request method="POST" doc:name="Insert Manifeste UEMOA via REST" config-ref="supabaseRestConfig" 
-                      path="${supabase.rest.base_path}${supabase.rest.endpoints.manifestes}">
-            <!-- Payload déjà préparé dans le transform précédent -->
-        </http:request>
-        
-        <logger level="INFO" message="✅ [Kit] Manifeste UEMOA inséré via REST API: #[vars.incoming.numero_manif]" doc:name="Log Insert Success" />
-        
-        <flow-ref name="route-to-destination-country" doc:name="Route to Destination Country" />
-        <flow-ref name="notify-commission-uemoa" doc:name="Notify Commission UEMOA" />
-        
-        <ee:transform doc:name="Success Response UEMOA" doc:id="cb04616c-96aa-4f45-b4b1-ef9c55e5a2dd">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
+                    </ee:message>
+                </ee:transform>
+                
+                <!-- ✅ Stockage Supabase -->
+                <http:request method="POST" doc:name="Store in Supabase" config-ref="supabaseRestConfig" 
+                              path="${supabase.rest.base_path}${supabase.rest.endpoints.manifestes_recus}"/>
+                
+                <logger level="INFO" message="✅ [Kit] Manifeste stocké dans Supabase: #[vars.incoming.numero_manif]" doc:name="Log Storage Success" />
+                
+                <!-- ✅ ÉTAPE 5: Transmission vers Mali (Pays B) -->
+                <flow-ref name="route-to-mali-bamako" doc:name="Route to Mali Bamako (Étape 5)" />
+                
+                <!-- ✅ Notification Commission UEMOA (Étape 20) -->
+                <flow-ref name="notify-commission-manifeste" doc:name="Notify Commission Manifeste" />
+                
+            </when>
+            <otherwise>
+                <logger level="ERROR" message="❌ [Kit] Format manifeste invalide depuis Sénégal: #[payload]" doc:name="Log Invalid Format" />
+                <set-variable value="#[400]" doc:name="Set Error Status" variableName="http.status" />
+                <ee:transform doc:name="Error Response">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 {
-    status: "SUCCESS",
-    message: "Manifeste UEMOA transmis avec succès via REST API",
-    numero_manif: vars.incoming.numero_manif,
-    format: "UEMOA",
-    consignataire: vars.incoming.consignataire,
-    navire: vars.incoming.navire,
-    nombre_articles: vars.incoming.nbre_article,
-    correlationId: vars.correlationId,
-    timestamp: now(),
-    supabase: {
-        endpoint: Mule::p('supabase.rest.base_path') ++ Mule::p('supabase.rest.endpoints.manifestes'),
-        method: "POST",
-        format_store: "UEMOA_2025"
-    }
+    status: "ERROR",
+    message: "Format manifeste UEMOA invalide depuis Sénégal",
+    etape: "4-5_RECEPTION_MANIFESTE",
+    pays_origine: "Sénégal",
+    timestamp: now()
 }]]></ee:set-payload>
-            </ee:message>
-        </ee:transform>
-        
-        <set-variable value="#[200]" doc:name="Set Success Status" variableName="http.status" />
+                    </ee:message>
+                </ee:transform>
+            </otherwise>
+        </choice>
     </sub-flow>
 
-    <!-- FLOW 2: Routage vers Pays de Destination - FORMAT UEMOA -->
-    <sub-flow name="route-to-destination-country" doc:id="f48e119e-c429-45f6-b4b8-277c8de1384c" >
-        <logger level="INFO" message="🚀 [Kit] Routage vers pays destination UEMOA: #[vars.incoming.articles[0].pays_dest]" doc:name="Log Routing" />
+    <!-- ✅ ÉTAPE 5: Routage vers Mali (Pays B de destination) -->
+    <sub-flow name="route-to-mali-bamako" doc:id="5d284d24-75cc-4482-aff3-dbff520d94d2">
+        <logger level="INFO" message="🚀 [Kit] ÉTAPE 5: Routage manifeste vers Mali (Bamako): #[vars.incoming.numero_manif]" doc:name="Log Mali Routing" />
         
-        <ee:transform doc:name="Transform UEMOA for Destination System" doc:id="57db70c7-b530-40d9-ba6c-ddb3eeb0ff1e">
+        <!-- ✅ Extraction articles pour Mali uniquement -->
+        <ee:transform doc:name="Extract for Mali" doc:id="37f2405e-a4fc-446b-87a2-5a2fcee09764">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
+// ✅ Filtrer articles destinés au Mali uniquement
+var articlesDestinationMali = vars.incoming.articles filter ((article) -> 
+    article.pays_dest contains "MALI" or article.ville_dest contains "BAMAKO"
+)
 ---
 {
-    // ✅ Format adapté pour pays de destination avec données UEMOA
-    manifeste: {
+    // ✅ En-tête manifeste pour Mali
+    manifeste_origine: {
         format: "UEMOA",
-        numero_origine: vars.incoming.numero_manif,
+        numero_manifeste: vars.incoming.numero_manif,
         annee_manifeste: vars.incoming.annee_manif,
         bureau_origine: vars.incoming.bureau_manif,
         consignataire: vars.incoming.consignataire,
@@ -142,12 +142,16 @@ output application/json
         provenance: vars.incoming.provenance,
         pavillon: vars.incoming.pavillon,
         date_arrivee: vars.incoming.date_arrivee,
-        paysOrigine: "CIV",
-        code_cgt: vars.incoming.code_cgt
+        
+        // ✅ Identification précise des pays
+        pays_origine: "SEN",           // Sénégal
+        pays_destination: "MLI",       // Mali
+        port_debarquement: "Port de Dakar",
+        etape_workflow: 5
     },
     
-    // ✅ Articles transformés pour le pays de destination
-    articles: vars.incoming.articles map ((article, index) -> {
+    // ✅ Articles filtrés pour Mali uniquement (étapes 6-7)
+    articles_mali: articlesDestinationMali map ((article, index) -> {
         position: index + 1,
         numero_article: article.art,
         
@@ -164,139 +168,57 @@ output application/json
         connaissement: article.connaissement,
         expediteur: article.expediteur,
         
-        // Informations destination
+        // ✅ Informations destination Mali
         destinataire: article.destinataire,
-        ville_destination: article.ville_dest,
+        ville_destination: article.ville_dest,  // Bamako normalement
+        pays_destination: "MALI",
         voie_destination: article.voie_dest,
         ordre: article.ordre,
         
-        // Conteneurs détaillés
-        conteneurs: article.conteneurs map ((conteneur, conteneurIndex) -> {
-            numero: conteneur.conteneur,
-            "type": conteneur."type",
-            taille: conteneur.taille,
-            plomb: conteneur.plomb
-        }),
-        nombre_conteneurs: article.nbre_conteneur,
-        
-        // Précisions additionnelles
-        precision_1: article.prec1,
-        precision_2: article.prec2
-    })
+        // Conteneurs
+        conteneurs: article.conteneurs,
+        nombre_conteneurs: article.nbre_conteneur
+    }),
+    
+    // ✅ Métadonnées workflow
+    metadata: {
+        correlation_id: vars.correlationId,
+        etape_actuelle: 5,
+        prochaine_etape: "6-7_RECEPTION_MALI",
+        date_transmission: now(),
+        source_kit: "KIT_INTERCONNEXION_UEMOA"
+    }
 }]]></ee:set-payload>
             </ee:message>
         </ee:transform>
         
-        <!-- ✅ UTILISE LES VARIABLES YAML pour l'endpoint -->
-        <http:request method="POST" doc:name="Send UEMOA to Destination Country" 
-                      path="${systeme.paysB.endpoints.manifeste}" config-ref="paysBConfig">
+        <!-- ✅ Envoi vers Mali (Pays B) -->
+        <http:request method="POST" doc:name="Send to Mali Bamako" 
+                      path="${systeme.paysB.endpoints.manifeste_reception}" config-ref="paysBConfig">
             <http:headers><![CDATA[#[{
     "Content-Type": "application/json",
-    "X-Source-Country": "CIV",
-    "X-Source-System": "KIT_INTERCONNEXION_UEMOA", 
+    "X-Source-Country": "SEN",
+    "X-Source-System": "KIT_INTERCONNEXION_SENEGAL_MALI", 
     "X-Correlation-ID": vars.correlationId,
-    "X-Manifeste-Format": "UEMOA"
+    "X-Manifeste-Format": "UEMOA",
+    "X-Workflow-Step": "5_TRANSMISSION_TO_MALI"
 }]]]></http:headers>
         </http:request>
         
-        <logger level="INFO" message="✅ [Kit] Manifeste UEMOA envoyé avec succès vers pays destination" doc:name="Log Routing Success" />
+        <logger level="INFO" message="✅ [Kit] ÉTAPE 5 TERMINÉE: Manifeste transmis vers Mali (Bamako)" doc:name="Log Mali Success" />
     </sub-flow>
 
-    <!-- FLOW 3: Notification Commission UEMOA - FORMAT ENRICHI -->
-    <sub-flow name="notify-commission-uemoa" doc:id="c6eec056-2b16-4c20-b00f-531d8e230eff" >
-        <async doc:name="Async Commission Notification">
-            <logger level="INFO" message="📊 [Kit] Notification Commission UEMOA pour manifeste: #[vars.incoming.numero_manif]" doc:name="Log Commission Notification" />
-            
-            <ee:transform doc:name="Transform UEMOA for Commission Manifeste" doc:id="fe8c57cf-5956-460f-8b81-d1212187f6ad">
-                <ee:message>
-                    <ee:set-payload><![CDATA[%dw 2.0
-output application/json
-// ✅ FONCTION: Mapper pays complets vers codes ISO 3 lettres
-fun mapPaysToCodes(pays) = 
-    if (pays == "BURKINA FASO" or pays == "BURKINA") "BFA"
-    else if (pays == "SÉNÉGAL" or pays == "SENEGAL") "SEN"
-    else if (pays == "CÔTE D'IVOIRE" or pays == "COTE D'IVOIRE") "CIV"
-    else if (pays == "MALI") "MLI"
-    else if (pays == "NIGER") "NER"
-    else if (pays == "TOGO") "TGO"
-    else if (pays == "BÉNIN" or pays == "BENIN") "BEN"
-    else if (pays == "GUINÉE-BISSAU" or pays == "GUINEE-BISSAU") "GNB"
-    else pays // Si déjà un code, le retourner tel quel
----
-{
-    typeOperation: "TRANSMISSION_MANIFESTE_UEMOA",
-    numeroOperation: vars.incoming.numero_manif ++ "-" ++ vars.incoming.annee_manif ++ "-" ++ now() as String {format: "yyyyMMddHHmmss"},
-    format: "UEMOA",
-    // ✅ CORRECTION: Normaliser les codes pays (mapper pays complets vers codes)
-    paysOrigine: if (vars.incoming.provenance == "MAROC") "MAR"
-                 else if (vars.incoming.provenance == "ROTTERDAM") "NLD"
-                 else "CIV", // Par défaut Côte d'Ivoire
-    paysDestination: mapPaysToCodes(vars.incoming.articles[0].pays_dest),
-    
-    // ✅ Données métier enrichies format UEMOA
-    donneesMetier: {
-        numero_manifeste: vars.incoming.numero_manif,
-        annee_manifeste: vars.incoming.annee_manif,
-        bureau_manifeste: vars.incoming.bureau_manif,
-        consignataire: vars.incoming.consignataire,
-        navire: vars.incoming.navire,
-        provenance: vars.incoming.provenance,
-        pavillon: vars.incoming.pavillon,
-        
-        // Statistiques agrégées
-        nombre_articles: vars.incoming.nbre_article,
-        poids_total_estime: sum(vars.incoming.articles.poids),
-        nombre_conteneurs_total: sum(vars.incoming.articles.nbre_conteneur),
-        valeur_approximative: vars.incoming.valapprox,
-        
-        // Destinations multiples (✅ CORRECTION: Mapper vers codes pays)
-        pays_destinations: vars.incoming.articles.pays_dest distinctBy $ map mapPaysToCodes($),
-        villes_destinations: vars.incoming.articles.ville_dest distinctBy $,
-        
-        // Types de marchandises
-        types_marchandises: vars.incoming.articles.marchandise distinctBy $,
-        
-        // Informations conteneurs
-        types_conteneurs: flatten(vars.incoming.articles.conteneurs)."type" distinctBy $,
-        tailles_conteneurs: flatten(vars.incoming.articles.conteneurs).taille distinctBy $
-    },
-    
-    horodatage: now(),
-    source: "KIT_INTERCONNEXION_UEMOA",
-    version_format: "UEMOA_2025.1"
-}
-
-]]></ee:set-payload>
-                </ee:message>
-            </ee:transform>
-            
-            <!-- ✅ NOUVEAU ENDPOINT: Manifestes spécialisé -->
-            <http:request method="POST" doc:name="Send Manifeste to Commission UEMOA" 
-                          path="${commission.uemoa.endpoints.manifeste}" config-ref="commissionConfig">
-                <http:headers><![CDATA[#[{
-    "Authorization": "Bearer " ++ Mule::p('commission.uemoa.auth.token'),
-    "Content-Type": "application/json",
-    "X-Source-System": "KIT_INTERCONNEXION_UEMOA",
-    "X-Correlation-ID": vars.correlationId,
-    "X-Format": "UEMOA"
-}]]]></http:headers>
-            </http:request>
-            
-            <logger level="INFO" message="✅ [Kit] Commission UEMOA notifiée manifeste avec succès (format UEMOA)" doc:name="Log Commission Success" />
-        </async>
-    </sub-flow>
-
-    <!-- ✅ FLOW 4: Réception Notification Paiement avec Supabase REST API -->
-    <sub-flow name="receive-payment-notification" doc:id="acd305bc-43d0-4179-a8e4-3a115974ceca" >
-        <set-variable value="#['PAY_' ++ now() as String {format: 'yyyyMMddHHmmss'} ++ '_' ++ (random() * 1000) as String {format: '000'}]" 
-                      doc:name="Set Payment Correlation ID" variableName="correlationId"/>
+    <!-- ✅ ÉTAPES 14-16: Réception Déclaration et Paiement depuis Mali -->
+    <sub-flow name="receive-declaration-from-mali" doc:id="9290e4d2-4a81-4d5c-8611-3a6367093407">
+        <set-variable value="#['DECL_MLI_' ++ now() as String {format: 'yyyyMMddHHmmss'} ++ '_' ++ (random() * 1000) as String {format: '000'}]" 
+                      doc:name="Set Declaration Correlation ID" variableName="correlationId"/>
         
         <set-variable value="#[payload]" doc:name="Set incoming" variableName="incoming" />
         
-        <logger level="INFO" message="💳 [Kit] Réception notification paiement: #[vars.incoming.numeroDeclaration]" doc:name="Log Payment Reception" />
+        <logger level="INFO" message="📋 [Kit] ÉTAPES 14-16: Réception déclaration et paiement depuis Mali: #[vars.incoming.numeroDeclaration]" doc:name="Log Declaration Reception" />
         
-        <!-- ✅ Préparation données paiement pour Supabase REST API -->
-        <ee:transform doc:name="Transform Payment for Supabase REST" doc:id="32ecb9de-488d-4195-9ddf-921ea5377378">
+        <!-- ✅ Stockage déclaration Mali dans Supabase -->
+        <ee:transform doc:name="Transform Declaration for Supabase" doc:id="0e4b94a3-0a70-4a16-9560-44e4b745c47a">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
@@ -304,762 +226,622 @@ output application/json
 {
     numero_declaration: vars.incoming.numeroDeclaration,
     manifeste_origine: vars.incoming.manifesteOrigine as String,
+    pays_declarant: "MLI", // Mali
+    pays_origine_manifeste: "SEN", // Sénégal
+    
+    // ✅ Informations déclaration (étapes 8-13)
+    annee_declaration: vars.incoming.anneeDecl default "2025",
+    bureau_declaration: vars.incoming.bureauDecl default "10S_BAMAKO",
+    date_declaration: vars.incoming.dateDecl default now(),
+    
+    // ✅ Informations paiement (étape 14)
     montant_paye: vars.incoming.montantPaye,
     reference_paiement: vars.incoming.referencePaiement,
     date_paiement: vars.incoming.datePaiement,
-    pays_declarant: vars.incoming.paysDeclarant,
-    mode_paiement: vars.incoming.modePaiement default "ELECTRONIQUE",
+    mode_paiement: vars.incoming.modePaiement default "ELECTRONIQUE_BCEAO",
+    
+    // ✅ Données complètes pour étapes 14-16
+    data_json: {
+        declaration_complete: vars.incoming,
+        etape_workflow: 16,
+        workflow_type: "LIBRE_PRATIQUE",
+        pays_declarant: "Mali",
+        ville_declarant: "Bamako",
+        prochaine_etape: "17_TRANSMISSION_TO_SENEGAL"
+    },
+    
     date_reception: now(),
-    statut: "PAIEMENT_CONFIRME"
+    statut: "DECLARATION_PAIEMENT_MALI"
 }]]></ee:set-payload>
             </ee:message>
         </ee:transform>
         
-        <!-- ✅ Insertion paiement via Supabase REST API - UTILISE LES VARIABLES YAML -->
-        <http:request method="POST" doc:name="Insert Payment via REST" config-ref="supabaseRestConfig" 
-                      path="${supabase.rest.base_path}${supabase.rest.endpoints.paiements}">
-            <!-- Payload déjà préparé dans le transform précédent -->
-        </http:request>
+        <!-- ✅ Stockage dans Supabase -->
+        <http:request method="POST" doc:name="Store Declaration in Supabase" config-ref="supabaseRestConfig" 
+                      path="${supabase.rest.base_path}${supabase.rest.endpoints.declarations_recues}"/>
         
-        <logger level="INFO" message="✅ [Kit] Paiement inséré via REST API: #[vars.incoming.numeroDeclaration]" doc:name="Log Payment Insert Success" />
+        <logger level="INFO" message="✅ [Kit] Déclaration Mali stockée dans Supabase: #[vars.incoming.numeroDeclaration]" doc:name="Log Declaration Stored" />
         
-        <flow-ref name="authorize-release-to-origin" doc:name="Authorize Release to Origin" />
+        <!-- ✅ ÉTAPE 17: Transmission autorisation vers Sénégal -->
+        <flow-ref name="authorize-release-to-senegal" doc:name="Send Authorization to Senegal (Étape 17)" />
         
-        <ee:transform doc:name="Payment Confirmation Response" doc:id="90f7bdef-6946-47f1-8023-79bc336d7d81">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-    status: "SUCCESS",
-    message: "Paiement confirmé via REST API, mainlevée autorisée",
-    numeroDeclaration: vars.incoming.numeroDeclaration,
-    correlationId: vars.correlationId,
-    timestamp: now()
-}]]></ee:set-payload>
-            </ee:message>
-        </ee:transform>
+        <!-- ✅ Notification Commission (Étape 21) -->
+        <flow-ref name="notify-commission-declaration" doc:name="Notify Commission Declaration" />
     </sub-flow>
 
-    <!-- FLOW 5: Autorisation Mainlevée - FORMAT UEMOA -->
-    <sub-flow name="authorize-release-to-origin" doc:id="72ebe42d-10a7-427f-b1b8-dad353f9021e" >
-        <logger level="INFO" message="🔓 [Kit] Autorisation mainlevée pour: #[vars.incoming.manifesteOrigine]" doc:name="Log Release Authorization" />
+    <!-- ✅ ÉTAPE 17: Autorisation Mainlevée vers Sénégal (Pays A) -->
+    <sub-flow name="authorize-release-to-senegal" doc:id="fcc4889d-6138-426a-9a9a-ca7512bfac30">
+        <logger level="INFO" message="🔓 [Kit] ÉTAPE 17: Autorisation mainlevée vers Sénégal (Port de Dakar): #[vars.incoming.manifesteOrigine]" doc:name="Log Release Authorization" />
         
-        <ee:transform doc:name="Transform Release Authorization UEMOA" doc:id="1fac44a9-5646-4dcd-b7b4-92de2375471e">
+        <ee:transform doc:name="Transform Authorization for Senegal" doc:id="796972b6-b157-4993-bce8-6bc27fe5ccd4">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 {
+    // ✅ Format attendu par Sénégal (api/mainlevee/autorisation.js)
     autorisationMainlevee: {
         format: "UEMOA",
         numeroManifeste: vars.incoming.manifesteOrigine,
-        numeroDeclaration: vars.incoming.numeroDeclaration,
-        montantAcquitte: vars.incoming.montantPaye,
-        paysDeclarant: vars.incoming.paysDeclarant,
-        dateAutorisation: now(),
-        referenceAutorisation: "AUTH-UEMOA-" ++ vars.incoming.numeroDeclaration ++ "-" ++ (now() as String {format: "yyyyMMddHHmmss"}),
-        statut: "AUTORISE",
+        referenceDeclaration: vars.incoming.numeroDeclaration,
         
-        // ✅ Informations additionnelles UEMOA
-        typeAutorisation: "MAINLEVEE_INTER_PAYS",
-        sourceKit: "KIT_INTERCONNEXION_UEMOA",
-        conformiteUEMOA: true
+        // ✅ Informations paiement Mali (étape 14-16)
+        montantAcquitte: vars.incoming.montantPaye,
+        monnaie: "FCFA",
+        paysDeclarant: "MLI",  // Mali
+        referencePaiement: vars.incoming.referencePaiement,
+        datePaiement: vars.incoming.datePaiement,
+        dateRecouvrement: vars.incoming.datePaiement,
+        
+        // ✅ Autorisation Kit vers Sénégal
+        dateAutorisation: now(),
+        referenceAutorisation: "AUTH-KIT-MLI-SEN-" ++ vars.incoming.numeroDeclaration ++ "-" ++ (now() as String {format: "yyyyMMddHHmmss"}),
+        statut: "AUTORISE_MAINLEVEE",
+        
+        // ✅ Métadonnées workflow étape 17
+        etape_workflow: 17,
+        typeAutorisation: "MAINLEVEE_INTER_PAYS_UEMOA",
+        sourceKit: "KIT_INTERCONNEXION_MALI_SENEGAL",
+        conformiteUEMOA: true,
+        workflow_type: "LIBRE_PRATIQUE",
+        
+        // ✅ Traçabilité complète
+        pays_origine_manifeste: "Sénégal",
+        port_origine: "Port de Dakar",
+        pays_declarant: "Mali",
+        ville_declarant: "Bamako"
     }
 }]]></ee:set-payload>
             </ee:message>
         </ee:transform>
         
-        <!-- ✅ UTILISE LES VARIABLES YAML pour l'endpoint -->
-        <http:request method="POST" doc:name="Send Release Authorization UEMOA" 
+        <!-- ✅ Envoi vers Sénégal (Port de Dakar) -->
+        <http:request method="POST" doc:name="Send Authorization to Senegal" 
                       path="${systeme.paysA.endpoints.mainlevee}" config-ref="paysAConfig">
             <http:headers><![CDATA[#[{
     "X-Correlation-ID": vars.correlationId,
     "Content-Type": "application/json",
-    "X-Authorization-Source": "KIT_INTERCONNEXION_UEMOA",
-    "X-Format": "UEMOA"
+    "X-Authorization-Source": "KIT_INTERCONNEXION_MALI",
+    "X-Source-Country": "MLI",
+    "X-Payment-Reference": vars.incoming.referencePaiement,
+    "X-Workflow-Step": "17_AUTHORIZATION_TO_SENEGAL"
 }]]]></http:headers>
         </http:request>
         
-        <logger level="INFO" message="✅ [Kit] Autorisation mainlevée UEMOA envoyée avec succès" doc:name="Log Release Success" />
+        <logger level="INFO" message="✅ [Kit] ÉTAPE 17 TERMINÉE: Autorisation transmise vers Sénégal (Port de Dakar)" doc:name="Log Senegal Success" />
     </sub-flow>
 
-    <!-- ✅ FLOW 6: Traçabilité Commission UEMOA avec Supabase REST API -->
-    <sub-flow name="record-commission-trace" doc:id="72c735e6-4d49-4cec-aaa3-f9e0ac91f8a2">
-        <set-variable value="#[payload]" doc:name="Set incoming" variableName="incoming" />
-        
-        <logger level="INFO" message="📊 [Kit] Réception traçabilité Commission UEMOA: #[vars.incoming.numeroOperation]" doc:name="Log Commission Trace" />
-        
-        <!-- ✅ Préparation traçabilité pour Supabase REST API -->
-        <ee:transform doc:name="Transform Trace UEMOA for Supabase REST" doc:id="819f9ed3-1a40-47a8-a9a6-e00a833b6255">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-    type_operation: vars.incoming.typeOperation,
-    pays_source: vars.incoming.paysOrigine,
-    pays_destination: vars.incoming.paysDestination,
-    reference_operation: vars.incoming.numeroOperation,
-    format_donnees: vars.incoming.format default "UEMOA",
-    version_format: vars.incoming.version_format default "UEMOA_2025.1",
-    payload_entrant: vars.incoming,
-    statut_traitement: "ENREGISTRE",
-    date_debut: now()
-}]]></ee:set-payload>
-            </ee:message>
-        </ee:transform>
-        
-        <!-- ✅ Insertion traçabilité via Supabase REST API - UTILISE LES VARIABLES YAML -->
-        <http:request method="POST" doc:name="Insert Trace UEMOA via REST" config-ref="supabaseRestConfig" 
-                      path="${supabase.rest.base_path}${supabase.rest.endpoints.tracabilite}">
-            <!-- Payload déjà préparé dans le transform précédent -->
-        </http:request>
-        
-        <ee:transform doc:name="Commission Trace Response UEMOA" doc:id="26063168-213f-47c8-a5e4-13eb28efd26d">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-    status: "RECORDED",
-    message: "Opération de traçabilité UEMOA enregistrée avec succès via REST API",
-    numeroOperation: vars.incoming.numeroOperation,
-    typeOperation: vars.incoming.typeOperation,
-    format: vars.incoming.format default "UEMOA",
-    timestamp: now(),
-    commission: {
-        statut: "ACQUITTE",
-        horodatage: now(),
-        conformite_uemoa: true
-    }
-}]]></ee:set-payload>
-            </ee:message>
-        </ee:transform>
-        
-        <set-variable value="#[200]" doc:name="Set Success Status" variableName="http.status" />
-        
-        <logger level="INFO" message="✅ [Kit] Traçabilité Commission UEMOA enregistrée via REST API" doc:name="Log Trace Success" />
-    </sub-flow>
-
-    <!-- ✅ FLOW 7: Health Check avec test Supabase REST API et support UEMOA -->
-    <sub-flow name="health-check" doc:id="b1052d95-77d8-4785-a0d4-b8453bab57b9" >
-        <!-- Test de connectivité Supabase -->
-        <try doc:name="Test Supabase Connection">
-            <!-- ✅ UTILISE LES VARIABLES YAML pour tester la connectivité -->
-            <http:request method="GET" doc:name="Test Supabase REST" config-ref="supabaseRestConfig" 
-                          path="${supabase.rest.base_path}${supabase.rest.endpoints.configurations}?limit=1">
-                <!-- Simple requête pour tester la connectivité -->
-            </http:request>
-            <set-variable value="UP" doc:name="Set Supabase Status UP" variableName="supabaseStatus" />
-            <error-handler>
-                <on-error-continue>
-                    <set-variable value="DOWN" doc:name="Set Supabase Status DOWN" variableName="supabaseStatus" />
-                </on-error-continue>
-            </error-handler>
-        </try>
-		<ee:transform doc:name="Health Status Response UEMOA" doc:id="d16a70b2-a479-4161-b7fb-84d57d996a1f">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-    service: "Kit Interconnexion UEMOA",
-    status: "UP",
-    version: "1.0.0-UEMOA",
-    format_support: "UEMOA_2025.1",
-    timestamp: now(),
-    database: {
-        "type": "Supabase REST API",
-        status: vars.supabaseStatus default "UNKNOWN",
-        endpoint: Mule::p('supabase.rest.base_url'),
-        host: Mule::p('supabase.host')
-    },
-    endpoints: {
-        manifesteTransmission: "/api/v1/manifeste/transmission",
-        paiementNotification: "/api/v1/paiement/notification",
-        tracabiliteEnregistrer: "/api/v1/tracabilite/enregistrer",
-        healthCheck: "/api/v1/health",
-        console: "/console"
-    },
-    configuration: {
-        approach: "REST_API",
-        format: "UEMOA",
-        timeout: Mule::p('external.timeout.connection') ++ " ms",
-        retryAttempts: Mule::p('retry.attempts'),
-        corsEnabled: Mule::p('cors.enabled')
-    },
-    externalSystems: {
-        supabase: {
-            host: Mule::p('supabase.host'),
-            status: vars.supabaseStatus default "UNKNOWN",
-            method: "REST_API",
-            endpoints: {
-                manifestes: Mule::p('supabase.rest.endpoints.manifestes'),
-                paiements: Mule::p('supabase.rest.endpoints.paiements'),
-                tracabilite: Mule::p('supabase.rest.endpoints.tracabilite')
-            }
-        },
-        paysA: {
-            host: Mule::p('systeme.paysA.host'),
-            status: "MONITORED",
-            format_support: "UEMOA"
-        },
-        paysB: {
-            host: Mule::p('systeme.paysB.host'),
-            status: "MONITORED",
-            format_support: "UEMOA"
-        },
-        commission: {
-            host: Mule::p('commission.uemoa.host'),
-            status: "MONITORED",
-            format_support: "UEMOA"
-        }
-    },
-    uemoa: {
-        compliance: true,
-        version: "2025.1",
-        supported_fields: [
-            "annee_manif", "bureau_manif", "numero_manif", "code_cgt",
-            "consignataire", "navire", "provenance", "pavillon",
-            "articles", "conteneurs"
-        ]
-    }
-}]]></ee:set-payload>
-            </ee:message>
-        </ee:transform>
-        
-        <logger level="INFO" message="🏥 [Kit] Health check effectué - Supabase: #[vars.supabaseStatus] - Format: UEMOA" doc:name="Log Health Check" />
-    </sub-flow>
-    <!-- ✅ FLOW 4: Réception Déclaration Douanière depuis Pays B avec Supabase REST API -->
-    <sub-flow name="receive-declaration-from-pays-b" doc:id="37e026ee-a5be-4023-8a2e-e7f5aee39735" >
-        <set-variable value="#['DECL_' ++ now() as String {format: 'yyyyMMddHHmmss'} ++ '_' ++ (random() * 1000) as String {format: '000'}]" 
-                      doc:name="Set Declaration Correlation ID" doc:id="d0845455-0121-4e25-b62d-20bc069ca9c9" variableName="correlationId"/>
-        
-        <set-variable value="#[payload]" doc:name="Set incoming" doc:id="dadb3d2d-9a0a-458c-99ba-56d940a99424" variableName="incoming"/>
-        
-        <logger level="INFO" message="📋 [Kit] Réception déclaration douanière: #[vars.incoming.numeroDecl] depuis Pays B" doc:name="Log Declaration Reception" doc:id="0dc56d0c-3919-48c7-af9c-f79908a3151e" />
-        
-        <!-- ✅ Préparation données pour Supabase REST API - Format Déclaration -->
-        <ee:transform doc:name="Transform Declaration for Supabase REST" doc:id="a18ce519-3bb5-4d61-9cb3-1dff746e9b28">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-    // ✅ Champs principaux déclaration
-    annee_declaration: vars.incoming.anneeDecl,
-    bureau_declaration: vars.incoming.bureauDecl,
-    numero_declaration: vars.incoming.numeroDecl,
-    date_declaration: vars.incoming.dateDecl,
+    <!-- ✅ WORKFLOW TRANSIT - 16 ÉTAPES -->
     
-    // ✅ Informations agrégées
-    nombre_articles: sizeOf(vars.incoming.articles),
-    valeur_totale_caf: sum(vars.incoming.articles.valeurCaf),
-    liquidation_totale: sum(vars.incoming.articles.liquidation),
-    poids_total_brut: sum(vars.incoming.articles.poidsBrut),
-    poids_total_net: sum(vars.incoming.articles.poidsNet),
-    
-    // ✅ Métadonnées
-    pays_declarant: "BFA", // Burkina Faso par défaut pour Pays B
-    format_donnees: "DECLARATION_PAYS_B",
-    version_format: "2025.1",
-    
-    // ✅ Données complètes format Déclaration
-    data_json: {
-        format: "DECLARATION_DOUANIERE",
-        version: "2025.1",
-        declaration_complete: vars.incoming,
-        articles_summary: vars.incoming.articles map ((article, index) -> {
-            numero_article: article.numArt,
-            connaissement: article.connaissement,
-            designation: article.designationCom,
-            origine: article.origine,
-            valeur_caf: article.valeurCaf,
-            liquidation: article.liquidation,
-            poids_brut: article.poidsBrut,
-            code_sh: article.codeSh
-        }),
-        correlationId: vars.correlationId,
-        dateReception: now() as DateTime,
-        source_system: "PAYS_B_DOUANES"
-    },
-    date_reception: now(),
-    statut: "DECLARATION_RECUE"
-}]]></ee:set-payload>
-            </ee:message>
-        </ee:transform>
+    <!-- ✅ ÉTAPES 1-6: Création Déclaration Transit depuis Sénégal -->
+    <sub-flow name="receive-transit-from-senegal" doc:id="9a145cad-bad8-4b02-8775-d57b288f1c45">
+        <set-variable value="#['TRANSIT_SEN_' ++ now() as String {format: 'yyyyMMddHHmmss'}]" 
+                      doc:name="Set Transit Correlation ID" variableName="correlationId"/>
         
-        <!-- ✅ Insertion via Supabase REST API - Table déclarations -->
-        <http:request method="POST" doc:name="Insert Declaration via REST" doc:id="063e45e1-59e8-4803-8473-c7b0c95c2426" config-ref="supabaseRestConfig" 
-                      path="${supabase.rest.base_path}${supabase.rest.endpoints.declarations}">
-            <!-- Payload déjà préparé dans le transform précédent -->
-        </http:request>
+        <set-variable value="#[payload]" doc:name="Set incoming transit" variableName="incoming"/>
         
-        <logger level="INFO" message="✅ [Kit] Déclaration insérée via REST API: #[vars.incoming.numeroDecl]" doc:name="Log Declaration Insert Success" doc:id="beaac743-3462-4b3d-a942-aa4348f7da67" />
+        <logger level="INFO" message="🚛 [Kit] ÉTAPES 1-6: Réception déclaration transit depuis Sénégal: #[vars.incoming.numeroDeclaration]" doc:name="Log Transit Creation" />
         
-        <!-- ✅ Notifier Commission UEMOA de la déclaration -->
-        <flow-ref name="notify-commission-declaration" doc:name="Notify Commission Declaration" doc:id="5301ae35-28e5-406c-b304-a558d94f163e" />
-        
-        <ee:transform doc:name="Declaration Success Response" doc:id="825c164c-f642-4c03-895d-f9548ea27291">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-    status: "SUCCESS",
-    message: "Déclaration douanière enregistrée avec succès via REST API",
-    numeroDecl: vars.incoming.numeroDecl,
-    bureauDecl: vars.incoming.bureauDecl,
-    anneeDecl: vars.incoming.anneeDecl,
-    nombreArticles: sizeOf(vars.incoming.articles),
-    valeurTotaleCaf: sum(vars.incoming.articles.valeurCaf),
-    liquidationTotale: sum(vars.incoming.articles.liquidation),
-    correlationId: vars.correlationId,
-    timestamp: now(),
-    supabase: {
-        endpoint: Mule::p('supabase.rest.base_path') ++ Mule::p('supabase.rest.endpoints.declarations'),
-        method: "POST",
-        format_store: "DECLARATION_PAYS_B_2025"
-    }
-}]]></ee:set-payload>
-            </ee:message>
-        </ee:transform>
-        
-        <set-variable value="#[200]" doc:name="Set Success Status" doc:id="526d9a35-a15f-4f5c-950e-98a4b1081ab1" variableName="httpStatus" />
-    </sub-flow>
-
-    <!-- ✅ FLOW 5: Notification Commission UEMOA pour Déclarations -->
-    <sub-flow name="notify-commission-declaration" doc:id="21bd19e4-618b-45f3-81e6-b55ca6f84667" >
-        <async doc:name="Async Commission Declaration Notification" doc:id="2a67c482-a53e-4efe-82c0-1055dbf4c7c4">
-            <logger level="INFO" message="📊 [Kit] Notification Commission UEMOA pour déclaration: #[vars.incoming.numeroDecl]" doc:name="Log Commission Declaration Notification" doc:id="08a153b0-2f5f-42d0-aa3e-3a55de3dbd48" />
-            
-            <ee:transform doc:name="Transform Declaration for Commission" doc:id="d5883264-b44d-4478-afe3-b80cd15ea125">
-                <ee:message>
-                    <ee:set-payload><![CDATA[%dw 2.0
-output application/json
-// ✅ FONCTION: Mapper pays complets vers codes ISO 3 lettres (réutilisée)
-fun mapPaysToCodes(pays) = 
-    if (pays == "ÉTATS-UNIS" or pays == "ETATS-UNIS") "USA"
-    else if (pays == "CHINE") "CHN"
-    else if (pays == "FRANCE") "FRA"
-    else if (pays == "ALLEMAGNE") "DEU"
-    else if (pays == "ROYAUME-UNI") "GBR"
-    else if (pays == "BURKINA FASO" or pays == "BURKINA") "BFA"
-    else if (pays == "SÉNÉGAL" or pays == "SENEGAL") "SEN"
-    else if (pays == "CÔTE D'IVOIRE" or pays == "COTE D'IVOIRE") "CIV"
-    else if (pays == "MALI") "MLI"
-    else if (pays == "NIGER") "NER"
-    else if (pays == "TOGO") "TGO"
-    else if (pays == "BÉNIN" or pays == "BENIN") "BEN"
-    else if (pays == "GUINÉE-BISSAU" or pays == "GUINEE-BISSAU") "GNB"
-    else pays // Si déjà un code, le retourner tel quel
----
-{
-    typeOperation: "SOUMISSION_DECLARATION_DOUANIERE",
-    numeroOperation: vars.incoming.numeroDecl ++ "-" ++ vars.incoming.anneeDecl ++ "-" ++ now() as String {format: "yyyyMMddHHmmss"},
-    format: "DECLARATION_DOUANIERE",
-    // ✅ CORRECTION: Codes pays fixes et corrects
-    paysOrigine: "BFA", // Burkina Faso
-    paysDestination: "CIV", // Retour vers pays côtier (Côte d'Ivoire)
-    
-    // ✅ Données métier enrichies format Déclaration
-    donneesMetier: {
-        numero_declaration: vars.incoming.numeroDecl,
-        annee_declaration: vars.incoming.anneeDecl,
-        bureau_declaration: vars.incoming.bureauDecl,
-        date_declaration: vars.incoming.dateDecl,
-        
-        // Statistiques agrégées
-        nombre_articles: sizeOf(vars.incoming.articles),
-        valeur_totale_caf: sum(vars.incoming.articles.valeurCaf),
-        liquidation_totale: sum(vars.incoming.articles.liquidation),
-        poids_total_brut: sum(vars.incoming.articles.poidsBrut),
-        poids_total_net: sum(vars.incoming.articles.poidsNet),
-        
-        // Articles principaux
-        articles_summary: vars.incoming.articles map ((article, index) -> {
-            numero: article.numArt,
-            code_sh: article.codeSh,
-            origine: article.origine,
-            valeur_caf: article.valeurCaf,
-            liquidation: article.liquidation
-        }),
-        
-        // Codes SH distincts (✅ CORRECTION: Normaliser les pays d'origine)
-        codes_sh_distincts: vars.incoming.articles.codeSh distinctBy $,
-        origines_distinctes: vars.incoming.articles.origine distinctBy $ map mapPaysToCodes($),
-        modes_conditionnement: vars.incoming.articles.modeCond distinctBy $
-    },
-    
-    horodatage: now() as DateTime,
-    source: "KIT_INTERCONNEXION_UEMOA",
-    version_format: "DECLARATION_2025.1"
-}]]></ee:set-payload>
-                </ee:message>
-            </ee:transform>
-            
-            <!-- ✅ NOUVEAU ENDPOINT: Déclarations spécialisé -->
-            <http:request method="POST" doc:name="Send Declaration to Commission UEMOA" doc:id="f1123a53-b7db-4265-9b3b-ec5796bc7628"
-                          path="${commission.uemoa.endpoints.declaration}" config-ref="commissionConfig">
-                <http:headers><![CDATA[#[{
-    "Authorization": "Bearer " ++ Mule::p('commission.uemoa.auth.token'),
-    "Content-Type": "application/json",
-    "X-Source-System": "KIT_INTERCONNEXION_UEMOA",
-    "X-Correlation-ID": vars.correlationId,
-    "X-Format": "DECLARATION_DOUANIERE"
-}]]]></http:headers>
-            </http:request>
-            
-            <logger level="INFO" message="✅ [Kit] Commission UEMOA notifiée pour déclaration avec succès" doc:name="Log Commission Declaration Success" doc:id="3a2bc702-fb08-49f0-9a9e-0d9995451176" />
-        </async>
-    </sub-flow>
-    <!-- ✅ BATCH FLOW: Récupération des apurements depuis Supabase vers Pays A -->
-    <flow name="batch-apurement-to-pays-a" doc:id="6f05fee4-1a13-4ffb-9dad-0a89bee12e57">
-        <!-- ✅ Scheduler: Exécution toutes les 30 secondes pour traitement temps réel -->
-        <scheduler doc:name="Scheduler Apurement" doc:id="830687d7-50f2-4e34-8031-203831c435dd">
-            <scheduling-strategy>
-                <fixed-frequency frequency="30000" startDelay="5000"/>
-            </scheduling-strategy>
-        </scheduler>
-        
-        <set-variable value="#['BATCH_APUREMENT_' ++ now() as String {format: 'yyyyMMddHHmmss'}]" 
-                      doc:name="Set Batch Correlation ID" variableName="batchCorrelationId"/>
-        
-        <logger level="INFO" message="🔄 [Batch] Démarrage récupération apurements depuis Supabase - ID: #[vars.batchCorrelationId]" doc:name="Log Batch Start" />
-        
-        <!-- ✅ Récupération des apurements en attente depuis Supabase -->
-        <http:request method="GET" doc:name="Get Pending Apurements from Supabase" 
-                      config-ref="supabaseRestConfig" 
-                      path="${supabase.rest.base_path}/apurements_en_attente?statut=eq.EN_ATTENTE&order=date_creation.asc">
-            <http:headers><![CDATA[#[{
-    "Authorization": "Bearer ${supabase.service_role_key}",
-    "Content-Type": "application/json",
-    "User-Agent": "Kit-Interconnexion-UEMOA-Batch/1.0"
-}]]]></http:headers>
-        </http:request>
-        
-        <!-- ✅ Vérification s'il y a des apurements à traiter -->
-        <choice doc:name="Check if Apurements Found">
-            <when expression="#[sizeOf(payload) > 0]">
-                <logger level="INFO" message="📋 [Batch] #[sizeOf(payload)] apurement(s) trouvé(s) à traiter" doc:name="Log Apurements Found" />
-                
-                <!-- ✅ Traitement de chaque apurement -->
-                <foreach doc:name="Process Each Apurement" collection="#[payload]">
-                    <flow-ref name="process-single-apurement" doc:name="Process Single Apurement" />
-                </foreach>
-                
-                <logger level="INFO" message="✅ [Batch] Traitement terminé pour #[sizeOf(payload)] apurement(s)" doc:name="Log Batch Complete" />
-            </when>
-            <otherwise>
-                <logger level="DEBUG" message="⏳ [Batch] Aucun apurement en attente trouvé" doc:name="Log No Apurements" />
-            </otherwise>
-        </choice>
-        
-        <error-handler>
-            <on-error-continue type="ANY">
-                <logger level="ERROR" message="❌ [Batch] Erreur dans le traitement des apurements: #[error.description]" doc:name="Log Batch Error" />
-            </on-error-continue>
-        </error-handler>
-    </flow>
-
-    <!-- ✅ SUB-FLOW: Traitement d'un apurement individuel -->
-    <sub-flow name="process-single-apurement" doc:id="5d206097-f65e-4cf2-a049-6af1137bcffc">
-        <set-variable value="#[payload]" doc:name="Set Current Apurement" variableName="currentApurement"/>
-        
-        <logger level="INFO" message="🔍 [Batch] Traitement apurement ID: #[vars.currentApurement.id] - Déclaration: #[vars.currentApurement.numero_declaration]" doc:name="Log Processing Apurement" />
-        
-        <!-- ✅ Récupération des détails de la déclaration associée -->
-        <http:request method="GET" doc:name="Get Declaration Details" 
-                      config-ref="supabaseRestConfig" 
-                      path="${supabase.rest.base_path}/declarations_recues?numero_declaration=eq.#[vars.currentApurement.numero_declaration]&limit=1">
-            <http:headers><![CDATA[#[{
-    "Authorization": "Bearer ${supabase.service_role_key}",
-    "Content-Type": "application/json"
-}]]]></http:headers>
-        </http:request>
-        
-        <set-variable value="#[payload[0]]" doc:name="Set Declaration Details" variableName="declarationDetails"/>
-        
-        <!-- ✅ Récupération du manifeste associé -->
-        <http:request method="GET" doc:name="Get Manifeste Details" 
-                      config-ref="supabaseRestConfig" 
-                      path="${supabase.rest.base_path}/manifestes_recus?numero_manifeste=eq.#[vars.currentApurement.numero_manifeste]&limit=1">
-            <http:headers><![CDATA[#[{
-    "Authorization": "Bearer ${supabase.service_role_key}",
-    "Content-Type": "application/json"
-}]]]></http:headers>
-        </http:request>
-        
-        <set-variable value="#[payload[0]]" doc:name="Set Manifeste Details" variableName="manifesteDetails"/>
-        
-        <!-- ✅ Préparation des données pour Pays A -->
-        <ee:transform doc:name="Transform Apurement Data for Pays A" doc:id="9eab7655-f774-48b4-82e5-4cd010dbaff8">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-    apurement: {
-        id: vars.currentApurement.id,
-        numero_declaration: vars.currentApurement.numero_declaration,
-        numero_manifeste: vars.currentApurement.numero_manifeste,
-        date_creation: vars.currentApurement.date_creation,
-        statut: vars.currentApurement.statut,
-        type_apurement: vars.currentApurement.type_apurement,
-        
-        // Données enrichies de la déclaration
-        declaration: {
-            annee_declaration: vars.declarationDetails.annee_declaration,
-            bureau_declaration: vars.declarationDetails.bureau_declaration,
-            date_declaration: vars.declarationDetails.date_declaration,
-            nombre_articles: vars.declarationDetails.nombre_articles,
-            valeur_totale_caf: vars.declarationDetails.valeur_totale_caf,
-            liquidation_totale: vars.declarationDetails.liquidation_totale,
-            poids_total_brut: vars.declarationDetails.poids_total_brut,
-            poids_total_net: vars.declarationDetails.poids_total_net,
-            pays_declarant: vars.declarationDetails.pays_declarant,
-            articles_summary: vars.declarationDetails.data_json.articles_summary
-        },
-        
-        // Données enrichies du manifeste
-        manifeste: {
-            annee_manifeste: vars.manifesteDetails.annee_manifeste,
-            bureau_manifeste: vars.manifesteDetails.bureau_manifeste,
-            consignataire: vars.manifesteDetails.consignataire,
-            navire: vars.manifesteDetails.navire,
-            provenance: vars.manifesteDetails.provenance,
-            pavillon: vars.manifesteDetails.pavillon,
-            date_arrivee: vars.manifesteDetails.date_arrivee,
-            nombre_articles: vars.manifesteDetails.nombre_articles,
-            pays_origine: vars.manifesteDetails.pays_origine,
-            pays_destination: vars.manifesteDetails.pays_destination
-        }
-    },
-    
-    // Métadonnées de traitement
-    metadata: {
-        batch_id: vars.batchCorrelationId,
-        date_traitement: now() as DateTime,
-        source: "KIT_BATCH_APUREMENT",
-        version: "1.0"
-    }
-}]]></ee:set-payload>
-            </ee:message>
-        </ee:transform>
-        
-        <!-- ✅ Envoi vers Pays A -->
-        <http:request method="POST" doc:name="Send Apurement to Pays A" 
-                      path="${systeme.paysA.endpoints.apurement}" config-ref="paysAConfig">
-            <http:headers><![CDATA[#[{
-    "Content-Type": "application/json",
-    "X-Source-System": "KIT_INTERCONNEXION_BATCH",
-    "X-Batch-ID": vars.batchCorrelationId,
-    "X-Apurement-ID": vars.currentApurement.id
-}]]]></http:headers>
-        </http:request>
-        
-        <!-- ✅ Mise à jour du statut dans Supabase -->
-        <ee:transform doc:name="Prepare Status Update" doc:id="56e66293-b629-4a47-8a02-8bd27805693f">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-    statut: "TRANSMIS_PAYS_A",
-    date_transmission: now() as DateTime,
-    batch_id: vars.batchCorrelationId
-}]]></ee:set-payload>
-            </ee:message>
-        </ee:transform>
-        
-        <http:request method="PATCH" doc:name="Update Apurement Status" 
-                      config-ref="supabaseRestConfig" 
-                      path="${supabase.rest.base_path}/apurements_en_attente?id=eq.#[vars.currentApurement.id]">
-            <http:headers><![CDATA[#[{
-    "Authorization": "Bearer ${supabase.service_role_key}",
-    "Content-Type": "application/json",
-    "Prefer": "return=minimal"
-}]]]></http:headers>
-        </http:request>
-        
-        <logger level="INFO" message="✅ [Batch] Apurement ID: #[vars.currentApurement.id] transmis avec succès vers Pays A" doc:name="Log Apurement Success" />
-        
-        <error-handler>
-            <on-error-continue type="ANY">
-                <logger level="ERROR" message="❌ [Batch] Erreur traitement apurement ID: #[vars.currentApurement.id] - #[error.description]" doc:name="Log Single Apurement Error" />
-                
-                <!-- ✅ Marquer l'apurement en erreur -->
-                <ee:transform doc:name="Prepare Error Status Update">
-                    <ee:message>
-                        <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-{
-    statut: "ERREUR_TRANSMISSION",
-    erreur_message: error.description,
-    date_erreur: now() as DateTime
-}]]></ee:set-payload>
-                    </ee:message>
-                </ee:transform>
-                
-                <http:request method="PATCH" doc:name="Update Error Status" 
-                              config-ref="supabaseRestConfig" 
-                              path="${supabase.rest.base_path}/apurements_en_attente?id=eq.#[vars.currentApurement.id]">
-                    <http:headers><![CDATA[#[{
-    "Authorization": "Bearer ${supabase.service_role_key}",
-    "Content-Type": "application/json",
-    "Prefer": "return=minimal"
-}]]]></http:headers>
-                </http:request>
-            </on-error-continue>
-        </error-handler>
-    </sub-flow>
-
-    <!-- ✅ FLOW: Enregistrement des données d'apurement dans Supabase (appelé depuis Pays B) -->
-    <sub-flow name="record-apurement-data" doc:id="0849c396-31cd-4e6c-8c0d-9ff4b8831bd2">
-        <set-variable value="#['APUREMENT_' ++ now() as String {format: 'yyyyMMddHHmmss'} ++ '_' ++ (random() * 1000) as String {format: '000'}]" 
-                      doc:name="Set Apurement Correlation ID" variableName="correlationId"/>
-        
-        <set-variable value="#[payload]" doc:name="Set incoming" variableName="incoming"/>
-        
-        <logger level="INFO" message="💾 [Kit] Enregistrement apurement - Déclaration: #[vars.incoming.numeroDeclaration] - Manifeste: #[vars.incoming.numeroManifeste]" doc:name="Log Apurement Recording" />
-        
-        <!-- ✅ Préparation des données d'apurement pour Supabase -->
-        <ee:transform doc:name="Transform Apurement for Supabase" doc:id="ec12738d-aaaa-422a-9386-2628bb4af157">
+        <!-- ✅ Stockage déclaration transit dans Supabase -->
+        <ee:transform doc:name="Transform Transit for Supabase" doc:id="fa7659e7-6e97-42b6-9a08-e93bb15802ad">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 {
     numero_declaration: vars.incoming.numeroDeclaration,
-    numero_manifeste: vars.incoming.numeroManifeste,
-    type_apurement: vars.incoming.typeApurement default "STANDARD",
-    pays_declarant: vars.incoming.paysDeclarant default "BFA",
-    pays_origine_manifeste: vars.incoming.paysOrigineManifeste default "CIV",
+    type_declaration: "TRANSIT",
+    pays_depart: "SEN",  // Sénégal
+    pays_destination: vars.incoming.paysDestination default "MLI",  // Mali
     
-    // Données de contexte
-    motif_apurement: vars.incoming.motifApurement default "Fin de traitement douanier",
-    urgence: vars.incoming.urgence default false,
+    // ✅ Informations transit (étapes 1-6)
+    bureau_depart: vars.incoming.bureauDepart default "18N_DAKAR",
+    date_creation: vars.incoming.dateCreation default now(),
+    transporteur: vars.incoming.transporteur,
+    mode_transport: vars.incoming.modeTransport default "ROUTIER",
+    itineraire: vars.incoming.itineraire,
+    delai_route: vars.incoming.delaiRoute,
     
-    // Métadonnées
-    date_creation: now() as DateTime,
-    statut: "EN_ATTENTE",
-    source_system: "PAYS_B_DOUANES",
-    correlation_id: vars.correlationId,
+    // ✅ Garanties et cautions (étape 6)
+    caution_requise: vars.incoming.cautionRequise default 0,
+    reference_caution: vars.incoming.referenceCaution,
     
-    // Données complètes pour traçabilité
+    // ✅ Données complètes transit
     data_json: {
-        request_payload: vars.incoming,
-        creation_context: {
-            user_agent: attributes.headers['user-agent'] default "unknown",
-            source_ip: attributes.headers['x-forwarded-for'] default attributes.remoteAddress,
-            timestamp: now() as DateTime
-        }
-    }
+        declaration_complete: vars.incoming,
+        etape_workflow: 6,
+        workflow_type: "TRANSIT",
+        pays_depart: "Sénégal",
+        port_depart: "Port de Dakar",
+        prochaine_etape: "10_DEBUT_OPERATION_TRANSIT"
+    },
+    
+    date_reception: now(),
+    statut: "TRANSIT_CREE_SENEGAL"
 }]]></ee:set-payload>
             </ee:message>
         </ee:transform>
         
-        <!-- ✅ Insertion dans Supabase -->
-        <http:request method="POST" doc:name="Insert Apurement to Supabase" 
-                      config-ref="supabaseRestConfig" 
-                      path="${supabase.rest.base_path}/apurements_en_attente">
-            <http:headers><![CDATA[#[{
-    "Authorization": "Bearer ${supabase.service_role_key}",
-    "Content-Type": "application/json",
-    "Prefer": "return=representation"
-}]]]></http:headers>
-        </http:request>
+        <!-- ✅ Stockage dans Supabase -->
+        <http:request method="POST" doc:name="Store Transit in Supabase" config-ref="supabaseRestConfig" 
+                      path="${supabase.rest.base_path}${supabase.rest.endpoints.declarations_transit}"/>
         
-        <set-variable value="#[payload[0]]" doc:name="Set Inserted Apurement" variableName="insertedApurement"/>
+        <logger level="INFO" message="✅ [Kit] Transit Sénégal stocké: #[vars.incoming.numeroDeclaration]" doc:name="Log Transit Stored" />
         
-        <logger level="INFO" message="✅ [Kit] Apurement enregistré avec ID: #[vars.insertedApurement.id] - Statut: EN_ATTENTE" doc:name="Log Apurement Inserted" />
+        <!-- ✅ ÉTAPES 10-11: Transmission copie vers Mali -->
+        <flow-ref name="send-transit-copy-to-mali" doc:name="Send Transit Copy to Mali (Étapes 10-11)" />
         
-        <!-- ✅ Notification Commission UEMOA de l'apurement -->
-        <flow-ref name="notify-commission-apurement" doc:name="Notify Commission Apurement" />
-        
-        <!-- ✅ Réponse de succès -->
-        <ee:transform doc:name="Apurement Recording Response" doc:id="06e9624c-97fe-4bf0-a71e-0951f66b5fd0">
+        <!-- ✅ Réponse création transit réussie -->
+        <ee:transform doc:name="Transit Creation Success Response">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 {
     status: "SUCCESS",
-    message: "Apurement enregistré avec succès, traitement en cours",
-    apurement: {
-        id: vars.insertedApurement.id,
-        numero_declaration: vars.insertedApurement.numero_declaration,
-        numero_manifeste: vars.insertedApurement.numero_manifeste,
-        statut: vars.insertedApurement.statut,
-        date_creation: vars.insertedApurement.date_creation
+    message: "Déclaration transit créée avec succès - Étapes 1-6 terminées",
+    numeroDeclaration: vars.incoming.numeroDeclaration,
+    etapes_completees: "1-6",
+    prochaine_etape: "10-11_TRANSMISSION_COPIE_MALI",
+    workflow_type: "TRANSIT",
+    pays_depart: "Sénégal",
+    pays_destination: vars.incoming.paysDestination default "Mali",
+    timestamp: now()
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </sub-flow>
+
+    <!-- ✅ ÉTAPES 10-11: Envoi Copie Transit vers Mali -->
+    <sub-flow name="send-transit-copy-to-mali" doc:id="b896ae8a-230e-49da-ae03-b1eb9674737a">
+        <logger level="INFO" message="📄 [Kit] ÉTAPES 10-11: Envoi copie transit vers Mali: #[vars.incoming.numeroDeclaration]" doc:name="Log Transit Copy" />
+        
+        <!-- ✅ Préparation copie pour Mali -->
+        <ee:transform doc:name="Prepare Transit Copy for Mali">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    // ✅ Copie déclaration transit pour Mali (étape 11)
+    transit_original: {
+        numero_declaration: vars.incoming.numeroDeclaration,
+        pays_depart: "SEN",
+        bureau_depart: vars.incoming.bureauDepart default "18N_DAKAR",
+        date_creation: vars.incoming.dateCreation default now(),
+        transporteur: vars.incoming.transporteur,
+        itineraire: vars.incoming.itineraire,
+        delai_route: vars.incoming.delaiRoute
     },
-    correlationId: vars.correlationId,
-    timestamp: now() as DateTime,
-    next_steps: [
-        "Apurement en attente de traitement par le batch",
-        "Transmission automatique vers Pays A dans les 30 secondes",
-        "Notification de la Commission UEMOA effectuée"
-    ]
+    
+    // ✅ Marchandises en transit
+    marchandises: vars.incoming.marchandises default [],
+    
+    // ✅ Instructions pour Mali (étapes 13-14)
+    instructions_mali: {
+        attendre_arrivee: true,
+        delai_maximum: vars.incoming.delaiRoute,
+        controles_passage: vars.incoming.controlesPassage default false,
+        message_arrivee_requis: true  // Étape 14
+    },
+    
+    metadata: {
+        correlation_id: vars.correlationId,
+        etape_actuelle: 11,
+        prochaine_etape: "13-14_ARRIVEE_MALI",
+        workflow_type: "TRANSIT"
+    }
 }]]></ee:set-payload>
             </ee:message>
         </ee:transform>
         
-        <set-variable value="#[200]" doc:name="Set Success Status" variableName="httpStatus" />
+        <!-- ✅ Envoi vers Mali -->
+        <http:request method="POST" doc:name="Send Transit Copy to Mali" 
+                      path="/api/transit/copie" config-ref="paysBConfig">
+            <http:headers><![CDATA[#[{
+    "Content-Type": "application/json",
+    "X-Source-Country": "SEN",
+    "X-Source-System": "KIT_TRANSIT_SENEGAL_MALI",
+    "X-Correlation-ID": vars.correlationId,
+    "X-Workflow-Step": "11_TRANSIT_COPY_TO_MALI"
+}]]]></http:headers>
+        </http:request>
+        
+        <logger level="INFO" message="✅ [Kit] ÉTAPES 10-11 TERMINÉES: Copie transit transmise vers Mali" doc:name="Log Mali Transit Success" />
     </sub-flow>
 
-    <!-- ✅ SUB-FLOW: Notification Commission UEMOA pour apurement -->
-    <sub-flow name="notify-commission-apurement" doc:id="e30cad09-c6c9-4851-816b-803bb2aaff0e">
-        <async doc:name="Async Commission Apurement Notification">
-            <logger level="INFO" message="📊 [Kit] Notification Commission UEMOA pour apurement - Déclaration: #[vars.insertedApurement.numero_declaration]" doc:name="Log Commission Apurement Notification" />
+    <!-- ✅ ÉTAPE 14: Réception Message Arrivée depuis Mali -->
+    <sub-flow name="receive-arrival-message-from-mali" doc:id="fea6a5b5-185e-44a7-bf8d-68aa0d2886c0">
+        <set-variable value="#['ARRIVAL_MLI_' ++ now() as String {format: 'yyyyMMddHHmmss'}]" 
+                      doc:name="Set Arrival Correlation ID" variableName="correlationId"/>
+        
+        <set-variable value="#[payload]" doc:name="Set arrival message" variableName="incoming"/>
+        
+        <logger level="INFO" message="📥 [Kit] ÉTAPE 14: Réception message arrivée depuis Mali: #[vars.incoming.numeroDeclaration]" doc:name="Log Arrival Message" />
+        
+        <!-- ✅ Stockage message arrivée dans Supabase -->
+        <ee:transform doc:name="Transform Arrival for Supabase">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    numero_declaration: vars.incoming.numeroDeclaration,
+    pays_destination: "MLI",  // Mali
+    bureau_arrivee: vars.incoming.bureauArrivee default "10S_BAMAKO",
+    date_arrivee: vars.incoming.dateArrivee default now(),
+    
+    // ✅ Informations arrivée (étape 14)
+    controle_effectue: vars.incoming.controleEffectue default true,
+    visa_appose: vars.incoming.visaAppose default true,
+    conformite_itineraire: vars.incoming.conformiteItineraire default true,
+    delai_respecte: vars.incoming.delaiRespecte default true,
+    
+    // ✅ Déclaration en détail (étape 15)
+    declaration_detail_deposee: vars.incoming.declarationDetailDeposee default false,
+    numero_declaration_detail: vars.incoming.numeroDeclarationDetail,
+    
+    data_json: {
+        message_complet: vars.incoming,
+        etape_workflow: 14,
+        workflow_type: "TRANSIT",
+        prochaine_etape: "16_TRANSMISSION_RETOUR_SENEGAL"
+    },
+    
+    date_reception: now(),
+    statut: "ARRIVEE_CONFIRMEE_MALI"
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <!-- ✅ Stockage dans Supabase -->
+        <http:request method="POST" doc:name="Store Arrival Message" config-ref="supabaseRestConfig" 
+                      path="${supabase.rest.base_path}${supabase.rest.endpoints.messages_arrivee}"/>
+        
+        <logger level="INFO" message="✅ [Kit] Message arrivée Mali stocké: #[vars.incoming.numeroDeclaration]" doc:name="Log Arrival Stored" />
+        
+        <!-- ✅ ÉTAPE 16: Transmission retour vers Sénégal -->
+        <flow-ref name="send-arrival-confirmation-to-senegal" doc:name="Send Arrival Confirmation to Senegal (Étape 16)" />
+    </sub-flow>
+
+    <!-- ✅ ÉTAPE 16: Confirmation Arrivée vers Sénégal -->
+    <sub-flow name="send-arrival-confirmation-to-senegal" doc:id="88b370a5-f465-4516-87e6-f665ddb884ba">
+        <logger level="INFO" message="📤 [Kit] ÉTAPE 16: Confirmation arrivée vers Sénégal: #[vars.incoming.numeroDeclaration]" doc:name="Log Confirmation to Senegal" />
+        
+        <!-- ✅ Préparation confirmation pour Sénégal -->
+        <ee:transform doc:name="Prepare Confirmation for Senegal">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    // ✅ Message arrivée pour apurement transit Sénégal
+    messageArrivee: {
+        numero_declaration: vars.incoming.numeroDeclaration,
+        pays_destination: "Mali",
+        bureau_arrivee: vars.incoming.bureauArrivee default "10S_BAMAKO",
+        date_arrivee: vars.incoming.dateArrivee default now(),
+        
+        // ✅ Résultats contrôles Mali
+        controle_effectue: vars.incoming.controleEffectue default true,
+        visa_appose: vars.incoming.visaAppose default true,
+        conformite_itineraire: vars.incoming.conformiteItineraire default true,
+        delai_respecte: vars.incoming.delaiRespecte default true,
+        
+        // ✅ Informations pour apurement Sénégal (étapes 17-18)
+        declaration_detail_deposee: vars.incoming.declarationDetailDeposee default false,
+        numero_declaration_detail: vars.incoming.numeroDeclarationDetail,
+        transit_termine: true,
+        
+        // ✅ Métadonnées workflow
+        etape_workflow: 16,
+        type_message: "CONFIRMATION_ARRIVEE_TRANSIT",
+        demande_apurement: true,
+        liberer_garanties: true
+    },
+    
+    metadata: {
+        correlation_id: vars.correlationId,
+        source_pays: "Mali",
+        destination_pays: "Sénégal",
+        workflow_type: "TRANSIT"
+    }
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <!-- ✅ Envoi vers Sénégal pour apurement transit -->
+        <http:request method="POST" doc:name="Send Confirmation to Senegal" 
+                      path="/api/transit/arrivee" config-ref="paysAConfig">
+            <http:headers><![CDATA[#[{
+    "Content-Type": "application/json",
+    "X-Source-Country": "MLI",
+    "X-Source-System": "KIT_TRANSIT_MALI_SENEGAL",
+    "X-Correlation-ID": vars.correlationId,
+    "X-Workflow-Step": "16_ARRIVAL_CONFIRMATION_TO_SENEGAL"
+}]]]></http:headers>
+        </http:request>
+        
+        <logger level="INFO" message="✅ [Kit] ÉTAPE 16 TERMINÉE: Confirmation arrivée transmise vers Sénégal" doc:name="Log Senegal Confirmation Success" />
+    </sub-flow>
+
+    <!-- ✅ NOTIFICATIONS COMMISSION UEMOA -->
+
+    <!-- ✅ Notification Commission - Manifeste (Étape 20) -->
+    <sub-flow name="notify-commission-manifeste" doc:id="f42d7573-d340-45d4-8d74-04726a99dce9">
+        <async doc:name="Async Commission Manifeste Notification">
+            <logger level="INFO" message="📊 [Kit] Notification Commission UEMOA - Manifeste: #[vars.incoming.numero_manif]" doc:name="Log Commission Manifeste" />
             
-            <ee:transform doc:name="Transform Apurement for Commission" doc:id="cf6462eb-efb5-4985-bdf7-2da9c18e16fd">
+            <ee:transform doc:name="Transform for Commission Manifeste">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+// ✅ Fonction normalisation codes pays
+fun normaliserCodesPays(pays) = 
+    if (pays == "SÉNÉGAL" or pays == "SENEGAL") "SEN"
+    else if (pays == "MALI") "MLI"
+    else if (pays == "BURKINA FASO" or pays == "BURKINA") "BFA"
+    else if (pays == "NIGER") "NER"
+    else if (pays == "CÔTE D'IVOIRE" or pays == "COTE D'IVOIRE") "CIV"
+    else if (pays == "TOGO") "TGO"
+    else if (pays == "BÉNIN" or pays == "BENIN") "BEN"
+    else if (pays == "GUINÉE-BISSAU") "GNB"
+    else pays
+---
+{
+    typeOperation: "TRANSMISSION_MANIFESTE_LIBRE_PRATIQUE",
+    numeroOperation: vars.incoming.numero_manif ++ "-" ++ vars.incoming.annee_manif ++ "-" ++ now() as String {format: "yyyyMMddHHmmss"},
+    format: "UEMOA",
+    
+    // ✅ Pays normalisés
+    paysOrigine: "SEN",  // Sénégal
+    paysDestination: normaliserCodesPays(vars.incoming.articles[0].pays_dest default "MLI"),
+    
+    // ✅ Données métier Commission
+    donneesMetier: {
+        numero_manifeste: vars.incoming.numero_manif,
+        annee_manifeste: vars.incoming.annee_manif,
+        consignataire: vars.incoming.consignataire,
+        navire: vars.incoming.navire,
+        provenance: vars.incoming.provenance,
+        port_debarquement: "Port de Dakar",
+        
+        // ✅ Statistiques
+        nombre_articles: vars.incoming.nbre_article,
+        poids_total: sum(vars.incoming.articles.poids),
+        nombre_conteneurs: sum(vars.incoming.articles.nbre_conteneur),
+        valeur_approximative: vars.incoming.valapprox,
+        
+        // ✅ Destinations
+        pays_destinations: vars.incoming.articles.pays_dest distinctBy $ map normaliserCodesPays($),
+        villes_destinations: vars.incoming.articles.ville_dest distinctBy $
+    },
+    
+    horodatage: now(),
+    source: "KIT_INTERCONNEXION_UEMOA",
+    version_format: "UEMOA_2025.1",
+    etape_workflow: 20
+}]]></ee:set-payload>
+                </ee:message>
+            </ee:transform>
+            
+            <!-- ✅ Envoi vers Commission UEMOA -->
+            <http:request method="POST" doc:name="Send Manifeste to Commission" 
+                          path="${commission.uemoa.endpoints.tracabilite_manifeste}" config-ref="commissionConfig">
+                <http:headers><![CDATA[#[{
+    "Authorization": "Bearer ${commission.uemoa.auth.token}",
+    "Content-Type": "application/json",
+    "X-Source-System": "KIT_INTERCONNEXION_UEMOA",
+    "X-Correlation-ID": vars.correlationId,
+    "X-Workflow-Step": "20_COMMISSION_MANIFESTE"
+}]]]></http:headers>
+            </http:request>
+            
+            <logger level="INFO" message="✅ [Kit] Commission UEMOA notifiée - Manifeste" doc:name="Log Commission Manifeste Success" />
+        </async>
+    </sub-flow>
+
+    <!-- ✅ Notification Commission - Déclaration (Étape 21) -->
+    <sub-flow name="notify-commission-declaration" doc:id="b5473ba7-3979-4c81-ba42-eaddf71434f2">
+        <async doc:name="Async Commission Declaration Notification">
+            <logger level="INFO" message="📊 [Kit] Notification Commission UEMOA - Déclaration: #[vars.incoming.numeroDeclaration]" doc:name="Log Commission Declaration" />
+            
+            <ee:transform doc:name="Transform for Commission Declaration">
                 <ee:message>
                     <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 {
-    typeOperation: "DEMANDE_APUREMENT",
-    numeroOperation: vars.insertedApurement.numero_declaration ++ "-APR-" ++ now() as String {format: "yyyyMMddHHmmss"},
-    format: "APUREMENT_INTER_PAYS",
-    paysOrigine: vars.insertedApurement.pays_origine_manifeste,
-    paysDestination: vars.insertedApurement.pays_declarant,
+    typeOperation: "COMPLETION_LIBRE_PRATIQUE",
+    numeroOperation: vars.incoming.numeroDeclaration ++ "-FINAL-" ++ now() as String {format: "yyyyMMddHHmmss"},
+    format: "WORKFLOW_COMPLETE",
     
-    // Données métier apurement
+    paysOrigine: "SEN",  // Sénégal
+    paysDestination: "MLI",  // Mali
+    
+    // ✅ Données finales workflow
     donneesMetier: {
-        numero_declaration: vars.insertedApurement.numero_declaration,
-        numero_manifeste: vars.insertedApurement.numero_manifeste,
-        type_apurement: vars.insertedApurement.type_apurement,
-        motif_apurement: vars.insertedApurement.motif_apurement,
-        urgence: vars.insertedApurement.urgence,
-        date_demande: vars.insertedApurement.date_creation,
+        numero_declaration: vars.incoming.numeroDeclaration,
+        manifeste_origine: vars.incoming.manifesteOrigine,
+        montant_paye: vars.incoming.montantPaye,
+        reference_paiement: vars.incoming.referencePaiement,
         
-        // Référence croisée
-        apurement_id: vars.insertedApurement.id,
-        correlation_id: vars.insertedApurement.correlation_id
+        // ✅ Workflow complet
+        etapes_completees: "1-21",
+        workflow_type: "LIBRE_PRATIQUE",
+        statut_final: "TERMINE_SUCCES",
+        
+        pays_origine: "Sénégal",
+        port_origine: "Port de Dakar", 
+        pays_destination: "Mali",
+        ville_destination: "Bamako"
     },
     
-    horodatage: now() as DateTime,
-    source: "KIT_INTERCONNEXION_APUREMENT",
-    version_format: "APUREMENT_2025.1"
+    horodatage: now(),
+    source: "KIT_INTERCONNEXION_FINAL",
+    version_format: "WORKFLOW_2025.1",
+    etape_workflow: 21
 }]]></ee:set-payload>
                 </ee:message>
             </ee:transform>
             
-            <http:request method="POST" doc:name="Send Apurement to Commission UEMOA" 
-                          path="${commission.uemoa.endpoints.tracabilite}" config-ref="commissionConfig">
+            <!-- ✅ Envoi vers Commission UEMOA -->
+            <http:request method="POST" doc:name="Send Final to Commission" 
+                          path="${commission.uemoa.endpoints.tracabilite_declaration}" config-ref="commissionConfig">
                 <http:headers><![CDATA[#[{
     "Authorization": "Bearer ${commission.uemoa.auth.token}",
     "Content-Type": "application/json",
-    "X-Source-System": "KIT_INTERCONNEXION_APUREMENT",
+    "X-Source-System": "KIT_INTERCONNEXION_FINAL",
     "X-Correlation-ID": vars.correlationId,
-    "X-Format": "APUREMENT"
+    "X-Workflow-Step": "21_COMMISSION_FINAL"
 }]]]></http:headers>
             </http:request>
             
-            <logger level="INFO" message="✅ [Kit] Commission UEMOA notifiée pour apurement avec succès" doc:name="Log Commission Apurement Success" />
+            <logger level="INFO" message="✅ [Kit] Commission UEMOA notifiée - Workflow terminé" doc:name="Log Commission Final Success" />
         </async>
+    </sub-flow>
+
+    <!-- ✅ HEALTH CHECK Kit d'Interconnexion -->
+    <sub-flow name="health-check" doc:id="004e345d-8b0d-4830-b452-3bcf4921ce6c">
+        <!-- ✅ Tests connectivité systèmes -->
+        <try doc:name="Test Systems Connectivity">
+            <!-- Test Sénégal -->
+            <http:request method="GET" doc:name="Test Senegal" config-ref="paysAConfig" 
+                          path="${systeme.paysA.endpoints.health}"/>
+            <set-variable value="UP" doc:name="Senegal UP" variableName="senegalStatus" />
+            
+            <!-- Test Mali -->
+            <http:request method="GET" doc:name="Test Mali" config-ref="paysBConfig" 
+                          path="/api/health"/>
+            <set-variable value="UP" doc:name="Mali UP" variableName="maliStatus" />
+            
+            <!-- Test Commission -->
+            <http:request method="GET" doc:name="Test Commission" config-ref="commissionConfig" 
+                          path="${commission.uemoa.endpoints.health}"/>
+            <set-variable value="UP" doc:name="Commission UP" variableName="commissionStatus" />
+            
+            <!-- Test Supabase -->
+            <http:request method="GET" doc:name="Test Supabase" config-ref="supabaseRestConfig" 
+                          path="${supabase.rest.base_path}${supabase.rest.endpoints.configurations_pays}?limit=1"/>
+            <set-variable value="UP" doc:name="Supabase UP" variableName="supabaseStatus" />
+            
+            <error-handler>
+                <on-error-continue>
+                    <set-variable value="DOWN" doc:name="Set DOWN Status" variableName="currentSystemStatus" />
+                </on-error-continue>
+            </error-handler>
+        </try>
+
+        <!-- ✅ Réponse Health Check complète -->
+        <ee:transform doc:name="Health Status Response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    service: "Kit d'Interconnexion UEMOA",
+    status: "UP",
+    version: "1.0.0-UEMOA",
+    format_support: "UEMOA_2025.1",
+    timestamp: now(),
+    
+    // ✅ Workflow supportés
+    workflows: {
+        libre_pratique: {
+            enabled: true,
+            etapes: "21 étapes",
+            description: "Sénégal (1-5, 17-19) ↔ Mali (6-16) ↔ Commission (20-21)"
+        },
+        transit: {
+            enabled: true,
+            etapes: "16 étapes", 
+            description: "Sénégal (1-6, 17-18) ↔ Mali (13-14) ↔ Kit (10-11, 16)"
+        }
+    },
+    
+    // ✅ Connectivité systèmes
+    systemes_externes: {
+        senegal: {
+            nom: "Sénégal - Port de Dakar",
+            role: "Pays de prime abord",
+            status: vars.senegalStatus default "DOWN",
+            url: Mule::p('systeme.paysA.url'),
+            endpoints_actifs: [
+                "/api/manifeste/creer",
+                "/api/mainlevee/autorisation", 
+                "/api/apurement/traiter"
+            ]
+        },
+        mali: {
+            nom: "Mali - Bamako",
+            role: "Pays de destination",
+            status: vars.maliStatus default "DOWN",
+            url: Mule::p('systeme.paysB.url'),
+            endpoints_actifs: [
+                "/api/manifeste/reception",
+                "/api/declaration/soumission",
+                "/api/paiement/notification"
+            ]
+        },
+        commission: {
+            nom: "Commission UEMOA",
+            role: "Traçabilité centralisée",
+            status: vars.commissionStatus default "DOWN",
+            url: Mule::p('commission.uemoa.url'),
+            endpoints_actifs: [
+                "/api/tracabilite/manifeste",
+                "/api/tracabilite/declaration"
+            ]
+        },
+        supabase: {
+            nom: "Base de données Kit",
+            role: "Stockage intermédiaire",
+            status: vars.supabaseStatus default "DOWN",
+            host: Mule::p('supabase.host')
+        }
+    },
+    
+    // ✅ Endpoints Kit d'Interconnexion
+    endpoints: {
+        manifesteTransmission: "/api/v1/manifeste/transmission",      # Étapes 4-5
+        declarationReception: "/api/v1/declaration/soumission",       # Étapes 14-16
+        transitCreation: "/api/v1/transit/creation",                  # Étapes 1-6
+        transitArrivee: "/api/v1/transit/arrivee",                   # Étape 14
+        healthCheck: "/api/v1/health",
+        console: "/console"
+    },
+    
+    configuration: {
+        timeout_connection: Mule::p('external.timeout.connection') ++ "ms",
+        retry_attempts: Mule::p('retry.attempts'),
+        cors_enabled: Mule::p('cors.enabled'),
+        batch_apurement_enabled: true
+    }
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <logger level="INFO" message="🏥 [Kit] Health check terminé - Systèmes: SEN(#[vars.senegalStatus default 'DOWN']) MLI(#[vars.maliStatus default 'DOWN']) COM(#[vars.commissionStatus default 'DOWN'])" doc:name="Log Health Complete" />
     </sub-flow>
 
 </mule>

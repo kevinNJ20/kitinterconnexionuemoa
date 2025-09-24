@@ -84,7 +84,7 @@ output application/json
                 
                 <!-- ✅ Stockage Supabase -->
                 <http:request method="POST" doc:name="Store in Supabase" config-ref="supabaseRestConfig" 
-                              path="${supabase.rest.base_path}${supabase.rest.endpoints.manifestes_recus}"/>
+                              path="${supabase.rest.base_path}${supabase.rest.endpoints.manifestes}"/>
                 
                 <logger level="INFO" message="✅ [Kit] Manifeste stocké dans Supabase: #[vars.incoming.numero_manif]" doc:name="Log Storage Success" />
                 
@@ -194,7 +194,7 @@ var articlesDestinationMali = vars.incoming.articles filter ((article) ->
         
         <!-- ✅ Envoi vers Mali (Pays B) -->
         <http:request method="POST" doc:name="Send to Mali Bamako" 
-                      path="${systeme.paysB.endpoints.manifeste_reception}" config-ref="paysBConfig">
+                      path="${systeme.paysB.endpoints.manifeste}" config-ref="paysBConfig">
             <http:headers><![CDATA[#[{
     "Content-Type": "application/json",
     "X-Source-Country": "SEN",
@@ -258,7 +258,7 @@ output application/json
         
         <!-- ✅ Stockage dans Supabase -->
         <http:request method="POST" doc:name="Store Declaration in Supabase" config-ref="supabaseRestConfig" 
-                      path="${supabase.rest.base_path}${supabase.rest.endpoints.declarations_recues}"/>
+                      path="${supabase.rest.base_path}${supabase.rest.endpoints.declarations}"/>
         
         <logger level="INFO" message="✅ [Kit] Déclaration Mali stockée dans Supabase: #[vars.incoming.numeroDeclaration]" doc:name="Log Declaration Stored" />
         
@@ -647,7 +647,7 @@ fun normaliserCodesPays(pays) =
             
             <!-- ✅ Envoi vers Commission UEMOA -->
             <http:request method="POST" doc:name="Send Manifeste to Commission" 
-                          path="${commission.uemoa.endpoints.tracabilite_manifeste}" config-ref="commissionConfig">
+                          path="${commission.uemoa.endpoints.manifeste}" config-ref="commissionConfig">
                 <http:headers><![CDATA[#[{
     "Authorization": "Bearer ${commission.uemoa.auth.token}",
     "Content-Type": "application/json",
@@ -707,7 +707,7 @@ output application/json
             
             <!-- ✅ Envoi vers Commission UEMOA -->
             <http:request method="POST" doc:name="Send Final to Commission" 
-                          path="${commission.uemoa.endpoints.tracabilite_declaration}" config-ref="commissionConfig">
+                          path="${commission.uemoa.endpoints.declaration}" config-ref="commissionConfig">
                 <http:headers><![CDATA[#[{
     "Authorization": "Bearer ${commission.uemoa.auth.token}",
     "Content-Type": "application/json",
@@ -742,7 +742,7 @@ output application/json
             
             <!-- Test Supabase -->
             <http:request method="GET" doc:name="Test Supabase" config-ref="supabaseRestConfig" 
-                          path="${supabase.rest.base_path}${supabase.rest.endpoints.configurations_pays}?limit=1"/>
+                          path="${supabase.rest.base_path}${supabase.rest.endpoints.configurations}?limit=1"/>
             <set-variable value="UP" doc:name="Supabase UP" variableName="supabaseStatus" />
             
             <error-handler>

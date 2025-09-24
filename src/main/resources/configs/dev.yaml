@@ -76,6 +76,10 @@ supabase:
       configurations: "/configurations_pays"
       metriques: "/metriques_operations"
       declarations: "/declarations_recues"
+      # A creer dans Supabase
+      declarations_transit: "/declarations_transit"
+      messages_arrivee: "/messages_arrivee"
+      tracabilite_manifeste: "/tracabilite_manifeste"
   
   headers:
     content_type: "application/json"

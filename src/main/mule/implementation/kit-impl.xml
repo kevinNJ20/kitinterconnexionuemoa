@@ -823,10 +823,10 @@ output application/json
     
     // ✅ Endpoints Kit d'Interconnexion
     endpoints: {
-        manifesteTransmission: "/api/v1/manifeste/transmission",      # Étapes 4-5
-        declarationReception: "/api/v1/declaration/soumission",       # Étapes 14-16
-        transitCreation: "/api/v1/transit/creation",                  # Étapes 1-6
-        transitArrivee: "/api/v1/transit/arrivee",                   # Étape 14
+        manifesteTransmission: "/api/v1/manifeste/transmission",      // Étapes 4-5
+        declarationReception: "/api/v1/declaration/soumission",       // Étapes 14-16
+        transitCreation: "/api/v1/transit/creation",                  // Étapes 1-6
+        transitArrivee: "/api/v1/transit/arrivee",                   // Étape 14
         healthCheck: "/api/v1/health",
         console: "/console"
     },
@@ -840,8 +840,7 @@ output application/json
 }]]></ee:set-payload>
             </ee:message>
         </ee:transform>
-        
-        <logger level="INFO" message="🏥 [Kit] Health check terminé - Systèmes: SEN(#[vars.senegalStatus default 'DOWN']) MLI(#[vars.maliStatus default 'DOWN']) COM(#[vars.commissionStatus default 'DOWN'])" doc:name="Log Health Complete" />
+		<logger level="INFO" message="🏥 [Kit] Health check terminé - Systèmes: SEN(#[vars.senegalStatus default 'DOWN']) MLI(#[vars.maliStatus default 'DOWN']) COM(#[vars.commissionStatus default 'DOWN'])" doc:name="Log Health Complete" />
     </sub-flow>
 
 </mule>

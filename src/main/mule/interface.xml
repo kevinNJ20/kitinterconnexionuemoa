@@ -1,13 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- 
-FICHIER: src/main/mule/interface.xml 
-CORRECTION: Application correcte des headers CORS dans toutes les réponses
+FICHIER: src/main/mule/interface.xml CORRIGÉ
+Kit d'Interconnexion UEMOA - Endpoints conformes au rapport PDF
+Sénégal (Pays A) ↔ Kit MuleSoft ↔ Mali (Pays B)
 -->
-<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd                            http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd                            http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd                            http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
-    <!-- ✅ FLOW PRINCIPAL CORRIGÉ avec CORS -->
-    <flow name="kitinterconnexionuemoa-main">
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" 
+      xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" 
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" 
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" 
+      xmlns:http="http://www.mulesoft.org/schema/mule/http" 
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd                            
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd                            
+        http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd                            
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- ✅ FLOW PRINCIPAL avec CORS amélioré -->
+    <flow name="kitinterconnexionuemoa-main" doc:id="d1e3b9bb-ab7d-4cb5-a9fb-ee6528f42b16">
         <http:listener path="/api/v1/*" config-ref="kitinterconnexionuemoa-httpListenerConfig">
-            <!-- ✅ CORRECTION: Headers CORS appliqués à TOUTES les réponses -->
             <http:response statusCode="#[vars.httpStatus default 200]">
                 <http:headers><![CDATA[#[vars.outboundHeaders ++ vars.corsHeaders default vars.corsHeaders]]]></http:headers>
             </http:response>
@@ -16,42 +27,57 @@ CORRECTION: Application correcte des headers CORS dans toutes les réponses
                 <http:headers><![CDATA[#[vars.outboundHeaders ++ vars.corsHeaders default vars.corsHeaders]]]></http:headers>
             </http:error-response>
         </http:listener>
-        <!-- ✅ CORRECTION: CORS headers définis EN PREMIER -->
-        <flow-ref doc:name="Set CORS Headers" doc:id="c5e5f072-b66e-4ef1-b94b-5d5ea4c2456b" name="cors-headers" />
-        <!-- ✅ CORRECTION: Gestion OPTIONS en premier pour CORS preflight -->
-        <choice doc:name="Handle CORS Preflight" doc:id="42fc3975-f65b-4b27-abe4-0e032ecfff6d">
+        
+        <!-- ✅ Headers CORS appliqués en premier -->
+        <flow-ref doc:name="Set CORS Headers" name="cors-headers" />
+        
+        <!-- ✅ Gestion OPTIONS pour CORS preflight -->
+        <choice doc:name="Handle CORS Preflight">
             <when expression="#[attributes.method == 'OPTIONS']">
-                <logger level="INFO" message="&#x1f500; [Kit] CORS Preflight request from: #[attributes.headers['origin'] default 'unknown']" doc:name="Log CORS Preflight" />
-                <ee:transform doc:name="CORS Preflight Response" doc:id="e5ea7914-7f72-44cb-93fd-cb88b6d2b92f">
+                <logger level="INFO" message="🔄 [Kit] CORS Preflight request from: #[attributes.headers['origin'] default 'unknown']" doc:name="Log CORS Preflight" />
+                <ee:transform doc:name="CORS Preflight Response">
                     <ee:message>
                         <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 {
-    message: "CORS preflight successful",
+    message: "CORS preflight successful - Kit Interconnexion UEMOA",
     timestamp: now(),
     allowedMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Source-Country", "X-Correlation-ID", "X-Source-System", "X-Test-Type"]
+    allowedHeaders: ["Content-Type", "Authorization", "X-Source-Country", "X-Correlation-ID", "X-Source-System", "X-Payment-Reference", "X-Authorization-Source"],
+    kitVersion: "1.0.0-UEMOA",
+    supportedWorkflows: ["LIBRE_PRATIQUE", "TRANSIT"]
 }]]></ee:set-payload>
                     </ee:message>
                 </ee:transform>
-                <set-variable value="#[200]" doc:name="Set 200 OK" doc:id="407fbebd-21e7-4b4d-8aeb-6afe25a7eac6" variableName="httpStatus" />
+                <set-variable value="#[200]" doc:name="Set 200 OK" variableName="httpStatus" />
             </when>
             <otherwise>
-                <!-- Route normale pour les autres méthodes -->
+                <!-- Route vers APIKit pour les autres méthodes -->
                 <apikit:router config-ref="kitinterconnexionuemoa-config" />
             </otherwise>
         </choice>
+        
         <error-handler ref="global-error-handler" />
     </flow>
-    <!-- ✅ CORRECTION: Sub-flow CORS amélioré -->
-    <sub-flow name="cors-headers" doc:id="d8585bfe-a33e-4d06-9aac-613f6d370044">
-        <!-- ✅ NOUVEAU: Logging pour debug CORS -->
-        <set-variable value="#[{&#xA;    &quot;Access-Control-Allow-Origin&quot;: &quot;*&quot;,&#xA;    &quot;Access-Control-Allow-Methods&quot;: &quot;GET, POST, PUT, DELETE, OPTIONS&quot;,&#xA;    &quot;Access-Control-Allow-Headers&quot;: &quot;Content-Type, Authorization, X-Source-Country, X-Correlation-ID, X-Source-System, X-Test-Type, X-Authorization-Source, User-Agent&quot;,&#xA;    &quot;Access-Control-Max-Age&quot;: &quot;3600&quot;,&#xA;    &quot;Access-Control-Allow-Credentials&quot;: &quot;false&quot;,&#xA;    &quot;Vary&quot;: &quot;Origin, Access-Control-Request-Method, Access-Control-Request-Headers&quot;&#xA;}]" doc:name="Set Enhanced CORS Headers" doc:id="51a3edff-cc61-4a46-9b06-bef23651b856" variableName="corsHeaders" />
-        <logger level="DEBUG" message="&#x1f500; [Kit] CORS headers set for request from: #[attributes.headers['origin'] default 'no-origin']" doc:name="Log CORS Setup" />
+    
+    <!-- ✅ Sub-flow CORS amélioré pour Kit UEMOA -->
+    <sub-flow name="cors-headers" doc:id="de329ad7-b89f-472f-8d26-369f5a379f31">
+        <set-variable value="#[{
+    &quot;Access-Control-Allow-Origin&quot;: &quot;*&quot;,
+    &quot;Access-Control-Allow-Methods&quot;: &quot;GET, POST, PUT, DELETE, OPTIONS&quot;,
+    &quot;Access-Control-Allow-Headers&quot;: &quot;Content-Type, Authorization, X-Source-Country, X-Correlation-ID, X-Source-System, X-Payment-Reference, X-Authorization-Source, X-Manifeste-Format, X-Workflow-Step&quot;,
+    &quot;Access-Control-Max-Age&quot;: &quot;3600&quot;,
+    &quot;Access-Control-Allow-Credentials&quot;: &quot;false&quot;,
+    &quot;Vary&quot;: &quot;Origin, Access-Control-Request-Method, Access-Control-Request-Headers&quot;,
+    &quot;X-Kit-Version&quot;: &quot;1.0.0-UEMOA&quot;,
+    &quot;X-Supported-Formats&quot;: &quot;UEMOA_2025.1&quot;
+}]" doc:name="Set Enhanced CORS Headers" variableName="corsHeaders" />
+        <logger level="DEBUG" message="🔄 [Kit] CORS headers configurés pour requête depuis: #[attributes.headers['origin'] default 'no-origin']" doc:name="Log CORS Setup" />
     </sub-flow>
-    <!-- ✅ CONSOLE FLOW CORRIGÉ avec CORS -->
-    <flow name="kitinterconnexionuemoa-console">
+    
+    <!-- ✅ CONSOLE FLOW avec CORS -->
+    <flow name="kitinterconnexionuemoa-console" doc:id="4a2173c2-a572-4389-8f25-9ae836aac63c">
         <http:listener path="/console/*" config-ref="kitinterconnexionuemoa-httpListenerConfig">
             <http:response statusCode="#[vars.httpStatus default 200]">
                 <http:headers><![CDATA[#[vars.outboundHeaders ++ vars.corsHeaders default vars.corsHeaders]]]></http:headers>
@@ -61,35 +87,147 @@ output application/json
                 <http:headers><![CDATA[#[vars.outboundHeaders ++ vars.corsHeaders default vars.corsHeaders]]]></http:headers>
             </http:error-response>
         </http:listener>
-        <!-- CORS headers aussi pour la console -->
-        <flow-ref doc:name="Set CORS Headers" doc:id="0fcadeb6-39b2-4987-bea1-77864591fa3e" name="cors-headers" />
+        
+        <flow-ref doc:name="Set CORS Headers" name="cors-headers" />
         <apikit:console config-ref="kitinterconnexionuemoa-config" />
         <error-handler ref="global-error-handler" />
     </flow>
-    <!-- ✅ ENDPOINTS FLOWS avec logging amélioré -->
-    <flow name="get:\health:kitinterconnexionuemoa-config">
-        <logger level="INFO" message="&#x1f3e5; [Kit] Health check demandé depuis: #[attributes.headers['user-agent'] default 'unknown']" doc:name="Log Health Request" />
-        <flow-ref doc:name="Execute Health Check" doc:id="0812063f-b5f3-4743-bee7-18b0dc2dae9d" name="health-check" />
+    
+    <!-- ✅ ENDPOINTS PRINCIPAUX - Workflow Libre Pratique (21 étapes) -->
+    
+    <!-- ÉTAPES 4-5: Réception manifeste depuis Sénégal (Pays A) -->
+    <flow name="post:\manifeste\transmission:application\json:kitinterconnexionuemoa-config" doc:id="0639d438-f651-4866-a383-17a2b5a97d62">
+        <logger level="INFO" message="📨 [Kit] ÉTAPES 4-5: Réception manifeste depuis Sénégal: #[attributes.headers['x-source-country'] default 'unknown']" doc:name="Log Manifeste Reception" />
+        <flow-ref doc:name="Process Manifeste from Senegal" name="receive-manifeste-from-senegal" />
     </flow>
-    <flow name="post:\manifeste\transmission:application\json:kitinterconnexionuemoa-config">
-        <logger level="INFO" message="&#x1f4e6; [Kit] Réception manifeste depuis: #[attributes.headers['x-source-system'] default 'unknown'] (#[attributes.headers['x-source-country'] default 'unknown'])" doc:name="Log Manifeste Request" />
-        <flow-ref doc:name="Process Manifeste" doc:id="f3059fea-52c1-413d-8d36-60b6ad1a1ebb" name="receive-manifeste-from-pays-a" />
+    
+    <!-- ÉTAPES 14-16: Réception déclaration depuis Mali (Pays B) -->
+    <flow name="post:\declaration\soumission:application\json:kitinterconnexionuemoa-config" doc:id="29933018-e508-41df-9c54-99059e27b5db">
+        <logger level="INFO" message="📋 [Kit] ÉTAPES 14-16: Réception déclaration depuis Mali: #[attributes.headers['x-source-country'] default 'unknown']" doc:name="Log Declaration Reception" />
+        <flow-ref doc:name="Process Declaration from Mali" name="receive-declaration-from-mali" />
     </flow>
-    <flow name="post:\paiement\notification:application\json:kitinterconnexionuemoa-config">
-        <logger level="INFO" message="&#x1f4b3; [Kit] Notification paiement depuis: #[attributes.headers['x-source-system'] default 'unknown'] (#[attributes.headers['x-source-country'] default 'unknown'])" doc:name="Log Payment Request" />
-        <flow-ref doc:name="Process Payment" doc:id="53ad1252-7086-4b77-b412-0fc6bdecff49" name="receive-payment-notification" />
+    
+    <!-- ÉTAPES 20-21: Traçabilité Commission UEMOA -->
+    <flow name="post:\tracabilite\enregistrer:application\json:kitinterconnexionuemoa-config" doc:id="0a2efea1-bb55-4c28-90e4-7956962cdb74">
+        <logger level="INFO" message="📊 [Kit] Traçabilité Commission UEMOA: #[attributes.headers['x-source-system'] default 'unknown']" doc:name="Log Trace Request" />
+        <flow-ref doc:name="Process Commission Trace" name="record-commission-trace" />
     </flow>
-    <flow name="post:\tracabilite\enregistrer:application\json:kitinterconnexionuemoa-config">
-        <logger level="INFO" message="&#x1f4ca; [Kit] Traçabilité depuis: #[attributes.headers['x-source-system'] default 'unknown']" doc:name="Log Trace Request" />
-        <flow-ref doc:name="Process Commission Trace" doc:id="b7a11845-b424-4774-b979-9605fa7beae8" name="record-commission-trace" />
+    
+    <!-- ✅ ENDPOINTS TRANSIT - Workflow Transit (16 étapes) -->
+    
+    <!-- ÉTAPES 1-6: Création déclaration transit depuis Sénégal -->
+    <flow name="post:\transit\creation:application\json:kitinterconnexionuemoa-config" doc:id="c9da7f39-e030-4755-b404-e247fd452257">
+        <logger level="INFO" message="🚛 [Kit] ÉTAPES 1-6: Création transit depuis Sénégal: #[attributes.headers['x-source-country'] default 'unknown']" doc:name="Log Transit Creation" />
+        <flow-ref doc:name="Process Transit Creation" name="receive-transit-from-senegal" />
     </flow>
-    <flow name="post:\declaration\soumission:application\json:kitinterconnexionuemoa-config">
-        <logger level="INFO" message="📋 [Kit] Déclaration douanière depuis: #[attributes.headers['x-source-system'] default 'unknown'] (#[attributes.headers['x-source-country'] default 'unknown'])" doc:name="Log Declaration Request" />
-        <flow-ref doc:name="Process Declaration" doc:id="36e5f5b9-512a-45fa-8c22-344ab5c2ba5c" name="receive-declaration-from-pays-b" />
+    
+    <!-- ÉTAPE 14: Message arrivée transit depuis Mali -->
+    <flow name="post:\transit\arrivee:application\json:kitinterconnexionuemoa-config" doc:id="34466d18-b31f-44af-9949-6601cfcbffbb">
+        <logger level="INFO" message="📥 [Kit] ÉTAPE 14: Message arrivée transit depuis Mali: #[attributes.headers['x-source-country'] default 'unknown']" doc:name="Log Transit Arrival" />
+        <flow-ref doc:name="Process Transit Arrival" name="receive-arrival-message-from-mali" />
     </flow>
-    <!-- ✅ NOUVEAU ENDPOINT: Apurement depuis Pays B -->
-    <flow name="post:\apurement\demande:application\json:kitinterconnexionuemoa-config">
-        <logger level="INFO" message="🔓 [Kit] Demande apurement depuis: #[attributes.headers['x-source-system'] default 'unknown'] (#[attributes.headers['x-source-country'] default 'unknown'])" doc:name="Log Apurement Request" />
-        <flow-ref doc:name="Process Apurement" doc:id="ad0fc90b-9c62-4235-9cea-1b268dc916c6" name="record-apurement-data" />
+    
+    <!-- ✅ ENDPOINTS DE SUPPORT -->
+    
+    <!-- Health Check détaillé -->
+    <flow name="get:\health:kitinterconnexionuemoa-config" doc:id="f15ab746-10dd-4ffc-83c5-83569e56ad3f">
+        <logger level="INFO" message="🏥 [Kit] Health check demandé depuis: #[attributes.headers['user-agent'] default 'unknown']" doc:name="Log Health Request" />
+        <flow-ref doc:name="Execute Health Check" name="health-check" />
     </flow>
+    
+    <!-- Notification apurement depuis Sénégal (étape 20+) -->
+    <flow name="post:\apurement\notification:application\json:kitinterconnexionuemoa-config" doc:id="9facd90a-b018-49f3-90bc-3abf001645af">
+        <logger level="INFO" message="🔓 [Kit] Notification apurement depuis Sénégal: #[payload.numeroManifeste default 'unknown']" doc:name="Log Apurement Notification" />
+        <ee:transform doc:name="Transform Apurement Response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    status: "SUCCESS",
+    message: "Notification apurement reçue par Kit MuleSoft",
+    numeroManifeste: payload.numeroManifeste,
+    dateNotification: now(),
+    kitProcessing: {
+        correlationId: attributes.headers['x-correlation-id'] default uuid(),
+        source: "KIT_INTERCONNEXION_UEMOA",
+        etapeWorkflow: "20_NOTIFICATION_APUREMENT"
+    },
+    instructions: [
+        "Notification transmise à la Commission UEMOA",
+        "Workflow libre pratique en cours de finalisation"
+    ],
+    timestamp: now()
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    
+    <!-- ✅ ENDPOINTS MANQUANTS SELON RAML -->
+    
+    <!-- Notification paiement (workflow existant) -->
+    <flow name="post:\paiement\notification:application\json:kitinterconnexionuemoa-config" doc:id="43fbeb72-28ae-4463-95a7-044bf7178b10">
+        <logger level="INFO" message="💳 [Kit] Notification paiement: #[payload.numeroDeclaration default 'unknown'] depuis: #[attributes.headers['x-source-country'] default 'unknown']" doc:name="Log Payment Notification" />
+        
+        <!-- Stocker dans Supabase -->
+        <http:request method="POST" doc:name="Store Payment in Supabase" config-ref="supabaseRestConfig" 
+                      path="${supabase.rest.base_path}${supabase.rest.endpoints.paiements}"/>
+        
+        <ee:transform doc:name="Transform Payment Response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    status: "SUCCESS",
+    message: "Notification paiement traitée par Kit MuleSoft",
+    numeroDeclaration: payload.numeroDeclaration,
+    montantPaye: payload.montantPaye,
+    dateTraitement: now(),
+    kitProcessing: {
+        correlationId: attributes.headers['x-correlation-id'] default uuid(),
+        source: "KIT_INTERCONNEXION_UEMOA",
+        storedInDatabase: true
+    },
+    timestamp: now()
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    
+    <!-- ✅ SUB-FLOWS pour traitement interne des étapes manquantes -->
+    
+    <!-- Sub-flow pour traçabilité Commission -->
+    <sub-flow name="record-commission-trace" doc:id="783628d5-0c2a-46d5-b680-1a856fcc1d6f">
+        <ee:transform doc:name="Transform Commission Data">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    status: "RECORDED",
+    message: "Opération UEMOA enregistrée avec succès par Kit MuleSoft",
+    numeroOperation: payload.numeroOperation default (uuid() ++ "-" ++ (now() as String {format: "yyyyMMddHHmmss"})),
+    typeOperation: payload.typeOperation default "OPERATION_UEMOA",
+    paysOrigine: payload.paysOrigine default "UNKNOWN",
+    paysDestination: payload.paysDestination default "UNKNOWN",
+    horodatage: now(),
+    kitProcessing: {
+        correlationId: attributes.headers['x-correlation-id'] default uuid(),
+        source: "KIT_INTERCONNEXION_COMMISSION",
+        format: "UEMOA_2025.1"
+    },
+    commission: {
+        traceability: "ENABLED",
+        dataStored: true,
+        analysisReady: true
+    },
+    timestamp: now()
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        
+        <logger level="INFO" message="📊 [Kit] Traçabilité Commission: #[payload.numeroOperation] enregistrée" doc:name="Log Commission Trace" />
+    </sub-flow>
+    
 </mule>

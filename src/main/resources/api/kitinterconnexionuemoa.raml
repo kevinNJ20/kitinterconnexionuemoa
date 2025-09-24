@@ -1,5 +1,7 @@
 #%RAML 1.0
-title: Kit d'Interconnexion UEMOA - API
+title: Kit d'Interconnexion UEMOA - API Conforme au Rapport PDF
+version: v1
+baseUri: http://localhost:8080/api/v1
 mediaType: application/json
 
 documentation:
@@ -7,307 +9,366 @@ documentation:
     content: |
       Cette API permet l'interconnexion des systèmes informatiques douaniers 
       des États membres de l'UEMOA dans le cadre de la mise en œuvre du régime 
-      de la libre pratique.
+      de la libre pratique et du transit.
+      
+      ## Workflows supportés:
+      
+      ### LIBRE PRATIQUE (21 étapes):
+      - ÉTAPES 4-5: Réception manifeste depuis Sénégal (Pays A de prime abord)
+      - ÉTAPES 14-16: Réception déclaration depuis Mali (Pays B de destination)  
+      - ÉTAPES 20-21: Traçabilité vers Commission UEMOA
+      
+      ### TRANSIT (16 étapes):
+      - ÉTAPES 1-6: Création déclaration transit depuis Sénégal
+      - ÉTAPE 14: Message arrivée transit depuis Mali
+      - ÉTAPES 10-11, 16: Gestion par le Kit MuleSoft
       
       Format supporté: UEMOA 2025.1
       
-      Cette version supporte le format standardisé UEMOA avec les structures
-      de manifestes conformes aux spécifications douanières UEMOA.
+      Pays A: Sénégal (Dakar) - Pays de prime abord
+      Pays B: Mali (Bamako) - Pays de destination
 
 types:
-  ManifestUEMOA:
+  # Types pour Workflow Libre Pratique
+  ManifestExtractionUEMOA:
     type: object
+    description: Extraction de manifeste transmise par le Sénégal (Étapes 4-5)
     properties:
+      # En-tête manifeste origine Sénégal
       annee_manif: 
         type: string
         description: Année du manifeste
         example: "2025"
       bureau_manif: 
         type: string
-        description: Code du bureau douanier
+        description: Bureau Sénégal
         example: "18N"
       numero_manif: 
-        type: number
-        description: Numéro unique du manifeste
+        type: integer
+        description: Numéro manifeste
         example: 5016
-      code_cgt: 
-        type: string
-        description: Code CGT
-        example: "014"
       consignataire: 
         type: string
-        description: Nom du consignataire
-        example: "MAERSK LINE"
-      repertoire: 
-        type: string
-        description: Référence répertoire
-        example: "02402"
+        description: Consignataire au Port de Dakar
+        example: "MAERSK LINE SENEGAL"
+      
+      # Transport
       navire: 
         type: string
         description: Nom du navire
         example: "MARCO POLO"
       provenance: 
         type: string
-        description: Port/Pays de provenance
+        description: Port de provenance
         example: "ROTTERDAM"
-      pavillon: 
-        type: string
-        description: Pavillon du navire
-        example: "LIBÉRIA"
       date_arrivee: 
         type: date-only
-        description: Date d'arrivée prévue
+        description: Date arrivée Port de Dakar
         example: "2025-01-15"
-      valapprox: 
-        type: number
-        description: Valeur approximative
-        example: 0
+        
+      # Informations Kit
+      paysOrigine: 
+        type: string
+        description: Pays de prime abord
+        example: "SENEGAL"
+      portDebarquement: 
+        type: string
+        description: Port de débarquement
+        example: "Port de Dakar"
+      etapeWorkflow: 
+        type: integer
+        description: Étape du workflow (5 = extraction transmise)
+        example: 5
+      
+      # Articles pour pays de destination uniquement
       nbre_article: 
-        type: number
-        description: Nombre total d'articles
+        type: integer
+        description: Nombre d'articles pour destination
         example: 2
-      articles: ArticleUEMOA[]
+      articles: ArticleDestinationUEMOA[]
   
-  ArticleUEMOA:
+  ArticleDestinationUEMOA:
     type: object
+    description: Article destiné au pays de destination (Mali)
     properties:
       art: 
-        type: number
-        description: Numéro de l'article
+        type: integer
+        description: Numéro article
         example: 1
-      prec1: 
-        type: number
-        description: Précision 1
-        example: 0
-      prec2: 
-        type: number
-        description: Précision 2
-        example: 0
-      date_emb: 
-        type: date-only
-        description: Date d'embarquement
-        example: "2025-01-02"
-      lieu_emb: 
-        type: string
-        description: Lieu d'embarquement
-        example: "Rotterdam"
       pays_dest: 
         type: string
         description: Pays de destination
-        example: "BURKINA FASO"
+        example: "MALI"
       ville_dest: 
         type: string
         description: Ville de destination
-        example: "OUAGADOUGOU"
+        example: "BAMAKO"
+      marchandise: 
+        type: string
+        description: Description marchandise
+        example: "Véhicule particulier Toyota"
+      poids: 
+        type: number
+        description: Poids en kg
+        example: 1500
+      destinataire: 
+        type: string
+        description: Destinataire au Mali
+        example: "IMPORT SARL BAMAKO"
       connaissement: 
         type: string
         description: Numéro de connaissement
         example: "233698813"
-      expediteur: 
-        type: string
-        description: Nom de l'expéditeur
-        example: "EXPORT COMPANY LTD"
-      destinataire: 
-        type: string
-        description: Nom du destinataire
-        example: "IMPORT SARL OUAGADOUGOU"
-      voie_dest: 
-        type: string
-        description: Voie de destination
-        example: "Route terrestre"
-      ordre: 
-        type: string
-        description: À l'ordre de
-        example: "BANQUE ATLANTIQUE"
-      marchandise: 
-        type: string
-        description: Description de la marchandise
-        example: "Véhicules particuliers"
-      poids: 
-        type: number
-        description: Poids brut en kg
-        example: 18700
-      nbre_colis: 
-        type: number
-        description: Nombre de colis
-        example: 523
-      marque: 
-        type: string
-        description: Marque
-        example: "TOYOTA"
-      mode_cond: 
-        type: string
-        description: Mode de conditionnement
-        example: "COLIS (PACKAGE)"
-      nbre_conteneur: 
-        type: number
-        description: Nombre de conteneurs
-        example: 1
-      conteneurs: ConteneurUEMOA[]
-  
-  ConteneurUEMOA:
-    type: object
-    properties:
-      conteneur: 
-        type: string
-        description: Numéro du conteneur
-        example: "TCLU1758689"
-      type: 
-        type: string
-        description: Type de conteneur
-        enum: ["DRS", "REF", "OPT", "FLT"]
-        example: "DRS"
-      taille: 
-        type: string
-        description: Taille du conteneur
-        enum: ["20", "40", "45"]
-        example: "40"
-      plomb: 
-        type: string
-        description: Numéro de plomb
-        example: "AE0293467"
 
-  DeclarationDouaniere:
+  # Types pour déclaration du Mali (Étapes 14-16)
+  DeclarationMaliUEMOA:
     type: object
+    description: Déclaration soumise par Mali (Étapes 14-16)
     properties:
+      numeroDeclaration: 
+        type: string
+        description: Numéro déclaration Mali
+        example: "DEC-MLI-2025-001"
+      manifesteOrigine: 
+        type: string
+        description: Numéro manifeste d'origine (Sénégal)
+        example: "5016"
+      
+      # Informations déclaration Mali
       anneeDecl: 
         type: string
-        description: Année de la déclaration
+        description: Année déclaration
         example: "2025"
       bureauDecl: 
         type: string
-        description: Code du bureau déclarant
-        example: "10S"
-      numeroDecl: 
-        type: number
-        description: Numéro de la déclaration
-        example: 10765
+        description: Bureau Mali
+        example: "10S_BAMAKO"
       dateDecl: 
         type: date-only
-        description: Date de la déclaration
+        description: Date déclaration
         example: "2025-01-08"
-      articles: ArticleDeclaration[]
-
-  ArticleDeclaration:
+      
+      # Informations paiement (Étape 14)
+      montantPaye: 
+        type: number
+        description: Montant payé au Mali
+        example: 250000
+      referencePaiement: 
+        type: string
+        description: Référence paiement
+        example: "PAY-MLI-2025-001"
+      datePaiement: 
+        type: datetime
+        description: Date de paiement
+        example: "2025-01-15T14:30:00Z"
+      paysDeclarant: 
+        type: string
+        description: Pays déclarant
+        example: "MLI"
+      
+      articles: ArticleDeclarationMali[]
+  
+  ArticleDeclarationMali:
     type: object
+    description: Article de déclaration Mali
     properties:
       numArt: 
-        type: number
-        description: Numéro de l'article
+        type: integer
+        description: Numéro article
         example: 1
-      connaissement: 
-        type: string
-        description: Numéro de connaissement
-        example: "NAM7190810"
-      modeCond: 
-        type: string
-        description: Mode de conditionnement
-        example: "ROULEAU"
       codeSh: 
         type: string
         description: Code SH
-        example: "4703210000"
-      libelleTarif: 
-        type: string
-        description: Libellé tarifaire
-        example: "- Mi-blanchies ou blanchies :-- De coniferes"
+        example: "8703210000"
       designationCom: 
         type: string
         description: Désignation commerciale
-        example: "CNTR MISSING IN LARA 270 ROLLS (135 PACKS) FLUFF PULP"
-      origine: 
-        type: string
-        description: Pays d'origine
-        example: "ÉTATS-UNIS"
-      nbreColis: 
-        type: number
-        description: Nombre de colis
-        example: 270
-      poidsBrut: 
-        type: number
-        description: Poids brut en kg
-        example: 102442
-      poidsNet: 
-        type: number
-        description: Poids net en kg
-        example: 102442
+        example: "Véhicule Toyota Corolla"
       valeurCaf: 
         type: number
         description: Valeur CAF
-        example: 77948508
+        example: 15000000
       liquidation: 
         type: number
-        description: Montant de liquidation
-        example: 22433580
-  
-  NotificationPaiement:
-    type: object
-    properties:
-      numeroDeclaration: string
-      manifesteOrigine: string
-      montantPaye: number
-      referencePaiement: string
-      datePaiement: datetime
-      paysDeclarant: string
+        description: Montant liquidation
+        example: 2500000
 
-  OperationTracabilite:
+  # Types pour Transit
+  DeclarationTransitUEMOA:
     type: object
+    description: Déclaration transit (Étapes 1-6)
     properties:
-      typeOperation: string
-      numeroOperation: string
-      paysOrigine: string
-      paysDestination: string
-      donneesMetier: object
+      numeroDeclaration: 
+        type: string
+        description: Numéro déclaration transit
+        example: "TRA-SEN-2025-001"
+      paysDepart: 
+        type: string
+        description: Pays de départ
+        example: "SEN"
+      paysDestination: 
+        type: string
+        description: Pays de destination
+        example: "MLI"
+      transporteur: 
+        type: string
+        description: Transporteur
+        example: "TRANSPORT SAHEL"
+      modeTransport: 
+        type: string
+        description: Mode de transport
+        example: "ROUTIER"
+      itineraire: 
+        type: string
+        description: Itinéraire prévu
+        example: "Dakar-Bamako via Kayes"
+      delaiRoute: 
+        type: string
+        description: Délai de route
+        example: "72 heures"
+      marchandises: TransitMarchandise[]
+  
+  TransitMarchandise:
+    type: object
+    description: Marchandise en transit
+    properties:
+      designation: 
+        type: string
+        description: Désignation
+        example: "Produits manufacturés"
+      poids: 
+        type: number
+        description: Poids total
+        example: 5000
+      nombreColis: 
+        type: integer
+        description: Nombre de colis
+        example: 100
+
+  # Types pour Commission UEMOA
+  OperationTracabiliteUEMOA:
+    type: object
+    description: Opération de traçabilité Commission
+    properties:
+      typeOperation: 
+        type: string
+        description: Type d'opération
+        enum: ["TRANSMISSION_MANIFESTE_LIBRE_PRATIQUE", "COMPLETION_LIBRE_PRATIQUE", "CREATION_TRANSIT", "COMPLETION_TRANSIT"]
+        example: "TRANSMISSION_MANIFESTE_LIBRE_PRATIQUE"
+      numeroOperation: 
+        type: string
+        description: Numéro d'opération unique
+        example: "5016-2025-20250115103000"
+      paysOrigine: 
+        type: string
+        description: Code pays origine
+        example: "SEN"
+      paysDestination: 
+        type: string
+        description: Code pays destination  
+        example: "MLI"
+      donneesMetier: 
+        type: object
+        description: Données métier spécifiques
+        properties:
+          numero_manifeste?: integer
+          nombre_articles?: integer
+          poids_total_estime?: number
+          valeur_approximative?: number
+
+# Endpoints principaux du Kit MuleSoft
+
+/health:
+  get:
+    description: Vérification état du Kit d'Interconnexion UEMOA
+    responses:
+      200:
+        body:
+          application/json:
+            example: |
+              {
+                "service": "Kit d'Interconnexion UEMOA",
+                "status": "UP", 
+                "version": "1.0.0-UEMOA",
+                "timestamp": "2025-01-15T10:00:00Z",
+                "workflows": {
+                  "libre_pratique": {
+                    "enabled": true,
+                    "etapes": "21 étapes",
+                    "description": "Sénégal (4-5, 17-19) ↔ Mali (6-16) ↔ Commission (20-21)"
+                  },
+                  "transit": {
+                    "enabled": true, 
+                    "etapes": "16 étapes",
+                    "description": "Sénégal (1-6) ↔ Mali (13-14) ↔ Kit (10-11, 16)"
+                  }
+                },
+                "systemes_externes": {
+                  "senegal": {
+                    "nom": "Sénégal - Port de Dakar",
+                    "role": "Pays de prime abord",
+                    "status": "UP"
+                  },
+                  "mali": {
+                    "nom": "Mali - Bamako", 
+                    "role": "Pays de destination",
+                    "status": "UP"
+                  },
+                  "commission": {
+                    "nom": "Commission UEMOA",
+                    "role": "Traçabilité centralisée",
+                    "status": "UP"
+                  }
+                }
+              }
 
 /manifeste:
   /transmission:
     post:
-      description: Réception d'un manifeste UEMOA depuis un pays de prime abord
+      description: |
+        ÉTAPES 4-5: Réception extraction manifeste depuis Sénégal (Pays A)
+        Le Kit MuleSoft reçoit l'extraction du manifeste depuis le Port de Dakar
+        et la route vers Mali (Bamako) pour traitement (étapes 6-16).
+      headers:
+        X-Source-Country:
+          description: Code pays source
+          example: SEN
+          required: true
+        X-Source-System:
+          description: Système source
+          example: SENEGAL_DOUANES_DAKAR
+          required: true
+        X-Correlation-ID:
+          description: ID de corrélation
+          example: SEN_20250115143000_123
+        X-Manifeste-Format:
+          description: Format du manifeste
+          example: UEMOA
       body:
         application/json:
-          type: ManifestUEMOA
+          type: ManifestExtractionUEMOA
           example: |
             {
               "annee_manif": "2025",
-              "bureau_manif": "18N",
+              "bureau_manif": "18N", 
               "numero_manif": 5016,
-              "code_cgt": "014",
-              "consignataire": "MAERSK LINE",
-              "repertoire": "02402",
+              "consignataire": "MAERSK LINE SENEGAL",
               "navire": "MARCO POLO",
               "provenance": "ROTTERDAM",
-              "pavillon": "LIBÉRIA",
               "date_arrivee": "2025-01-15",
-              "valapprox": 0,
+              "paysOrigine": "SENEGAL",
+              "portDebarquement": "Port de Dakar", 
+              "etapeWorkflow": 5,
               "nbre_article": 1,
               "articles": [
                 {
                   "art": 1,
-                  "prec1": 0,
-                  "prec2": 0,
-                  "date_emb": "2025-01-02",
-                  "lieu_emb": "Rotterdam",
-                  "pays_dest": "BURKINA FASO",
-                  "ville_dest": "OUAGADOUGOU",
-                  "connaissement": "233698813",
-                  "expediteur": "EXPORT COMPANY LTD",
-                  "destinataire": "IMPORT SARL OUAGADOUGOU",
-                  "voie_dest": "Route terrestre",
-                  "ordre": "BANQUE ATLANTIQUE",
-                  "marchandise": "Véhicules particuliers",
+                  "pays_dest": "MALI",
+                  "ville_dest": "BAMAKO",
+                  "marchandise": "Véhicule particulier Toyota",
                   "poids": 1500,
-                  "nbre_colis": 1,
-                  "marque": "TOYOTA",
-                  "mode_cond": "COLIS (PACKAGE)",
-                  "nbre_conteneur": 1,
-                  "conteneurs": [
-                    {
-                      "conteneur": "TCLU1758689",
-                      "type": "DRS",
-                      "taille": "40",
-                      "plomb": "AE0293467"
-                    }
-                  ]
+                  "destinataire": "IMPORT SARL BAMAKO",
+                  "connaissement": "233698813"
                 }
               ]
             }
@@ -318,42 +379,58 @@ types:
               example: |
                 {
                   "status": "SUCCESS",
-                  "message": "Manifeste UEMOA transmis avec succès",
+                  "message": "Extraction manifeste transmise vers Mali avec succès",
                   "numero_manif": 5016,
-                  "format": "UEMOA",
-                  "consignataire": "MAERSK LINE",
-                  "navire": "MARCO POLO",
-                  "nombre_articles": 1,
-                  "timestamp": "2025-01-15T10:30:00Z"
+                  "paysOrigine": "SENEGAL",
+                  "paysDestination": "MALI",
+                  "articles_transmis": 1,
+                  "etapeWorkflow": 5,
+                  "prochaine_etape": "6-16: Traitement Mali puis retour étape 17",
+                  "kitProcessing": {
+                    "correlationId": "SEN_MLI_20250115_5016",
+                    "routageVers": "Mali Bamako",
+                    "formatTransmis": "UEMOA"
+                  },
+                  "timestamp": "2025-01-15T14:30:00Z"
                 }
 
 /declaration:
   /soumission:
     post:
-      description: Soumission d'une déclaration douanière depuis un pays de destination
+      description: |
+        ÉTAPES 14-16: Réception déclaration depuis Mali (Pays B)
+        Le Kit MuleSoft reçoit la déclaration et le paiement depuis Mali
+        et transmet l'autorisation vers Sénégal (étape 17).
+      headers:
+        X-Source-Country:
+          description: Code pays source  
+          example: MLI
+          required: true
+        X-Source-System:
+          description: Système source
+          example: MALI_DOUANES_BAMAKO
+          required: true
       body:
         application/json:
-          type: DeclarationDouaniere
+          type: DeclarationMaliUEMOA
           example: |
             {
+              "numeroDeclaration": "DEC-MLI-2025-001",
+              "manifesteOrigine": "5016",
               "anneeDecl": "2025",
-              "bureauDecl": "10S",
-              "numeroDecl": 10765,
+              "bureauDecl": "10S_BAMAKO",
               "dateDecl": "2025-01-08",
+              "montantPaye": 250000,
+              "referencePaiement": "PAY-MLI-2025-001",
+              "datePaiement": "2025-01-15T14:30:00Z",
+              "paysDeclarant": "MLI",
               "articles": [
                 {
                   "numArt": 1,
-                  "connaissement": "NAM7190810",
-                  "modeCond": "ROULEAU",
-                  "codeSh": "4703210000",
-                  "libelleTarif": "- Mi-blanchies ou blanchies :-- De coniferes",
-                  "designationCom": "CNTR MISSING IN LARA 270 ROLLS (135 PACKS) FLUFF PULP 104.699 ADMT BSC 0789609 DTHC COLLECT ITN X20241001359826 ROLLS",
-                  "origine": "ÉTATS-UNIS",
-                  "nbreColis": 270,
-                  "poidsBrut": 102442,
-                  "poidsNet": 102442,
-                  "valeurCaf": 77948508,
-                  "liquidation": 22433580
+                  "codeSh": "8703210000",
+                  "designationCom": "Véhicule Toyota Corolla",
+                  "valeurCaf": 15000000,
+                  "liquidation": 2500000
                 }
               ]
             }
@@ -364,29 +441,34 @@ types:
               example: |
                 {
                   "status": "SUCCESS",
-                  "message": "Déclaration douanière enregistrée avec succès",
-                  "numeroDecl": 10765,
-                  "bureauDecl": "10S",
-                  "anneeDecl": "2025",
-                  "nombreArticles": 1,
-                  "timestamp": "2025-01-08T14:30:00Z"
+                  "message": "Déclaration Mali traitée - Autorisation transmise vers Sénégal",
+                  "numeroDeclaration": "DEC-MLI-2025-001",
+                  "manifesteOrigine": "5016",
+                  "montantPaye": 250000,
+                  "etapeWorkflow": 16,
+                  "prochaine_etape": "17: Transmission autorisation vers Sénégal",
+                  "kitProcessing": {
+                    "correlationId": "MLI_SEN_20250115_DEC001", 
+                    "autorisationVers": "Senegal Port de Dakar",
+                    "workflowType": "LIBRE_PRATIQUE"
+                  },
+                  "timestamp": "2025-01-15T16:45:00Z"
                 }
 
 /paiement:
   /notification:
     post:
-      description: Notification de paiement depuis un pays de destination
+      description: Notification de paiement (support workflow existant)
       body:
         application/json:
-          type: NotificationPaiement
           example: |
             {
-              "numeroDeclaration": "DEC2025001",
+              "numeroDeclaration": "DEC-MLI-2025-001",
               "manifesteOrigine": "5016",
-              "montantPaye": 250000.00,
-              "referencePaiement": "PAY2025001",
+              "montantPaye": 250000,
+              "referencePaiement": "PAY-MLI-2025-001", 
               "datePaiement": "2025-01-15T14:30:00Z",
-              "paysDeclarant": "BFA"
+              "paysDeclarant": "MLI"
             }
       responses:
         200:
@@ -395,28 +477,32 @@ types:
               example: |
                 {
                   "status": "SUCCESS",
-                  "message": "Paiement confirmé, mainlevée autorisée",
-                  "numeroDeclaration": "DEC2025001",
+                  "message": "Notification paiement traitée par Kit MuleSoft",
                   "timestamp": "2025-01-15T14:35:00Z"
                 }
 
 /tracabilite:
   /enregistrer:
     post:
-      description: Enregistrement d'opération de traçabilité (Commission UEMOA)
+      description: |
+        ÉTAPES 20-21: Enregistrement traçabilité Commission UEMOA
+        Le Kit MuleSoft transmet les opérations vers la Commission pour supervision.
+      headers:
+        X-Source-System:
+          description: Système source
+          example: KIT_INTERCONNEXION_UEMOA
+          required: true
       body:
         application/json:
-          type: OperationTracabilite
+          type: OperationTracabiliteUEMOA
           example: |
             {
-              "typeOperation": "TRANSMISSION_MANIFESTE_UEMOA",
+              "typeOperation": "TRANSMISSION_MANIFESTE_LIBRE_PRATIQUE",
               "numeroOperation": "5016-2025-20250115103000",
-              "paysOrigine": "CIV",
-              "paysDestination": "BFA",
-              "format": "UEMOA",
+              "paysOrigine": "SEN",
+              "paysDestination": "MLI", 
               "donneesMetier": {
                 "numero_manifeste": 5016,
-                "consignataire": "MAERSK LINE",
                 "nombre_articles": 1,
                 "poids_total_estime": 1500,
                 "valeur_approximative": 150000
@@ -429,33 +515,153 @@ types:
               example: |
                 {
                   "status": "RECORDED",
-                  "message": "Opération UEMOA enregistrée avec succès",
+                  "message": "Opération UEMOA enregistrée avec succès par Kit MuleSoft",
                   "numeroOperation": "5016-2025-20250115103000",
-                  "format": "UEMOA",
+                  "typeOperation": "TRANSMISSION_MANIFESTE_LIBRE_PRATIQUE",
+                  "horodatage": "2025-01-15T10:30:00Z",
+                  "commission": {
+                    "traceability": "ENABLED",
+                    "dataStored": true,
+                    "analysisReady": true
+                  },
                   "timestamp": "2025-01-15T10:30:00Z"
                 }
 
-/health:
-  get:
-    description: Vérification de l'état du service
-    responses:
-      200:
-        body:
-          application/json:
-            example: |
-              {
-                "service": "Kit Interconnexion UEMOA",
-                "status": "UP",
-                "version": "1.0.0-UEMOA",
-                "format_support": "UEMOA_2025.1",
-                "timestamp": "2025-01-15T10:00:00Z",
-                "uemoa": {
-                  "compliance": true,
-                  "version": "2025.1",
-                  "supported_fields": [
-                    "annee_manif", "bureau_manif", "numero_manif", 
-                    "code_cgt", "consignataire", "navire", "provenance", 
-                    "pavillon", "articles", "conteneurs"
-                  ]
+# Endpoints Transit - Workflow 16 étapes
+
+/transit:
+  /creation:
+    post:
+      description: |
+        ÉTAPES 1-6: Création déclaration transit depuis Sénégal
+        Le Kit MuleSoft reçoit la déclaration transit et la traite selon workflow.
+      headers:
+        X-Source-Country:
+          example: SEN
+          required: true
+        X-Workflow-Step:
+          example: "6_TRANSIT_CREATION"
+      body:
+        application/json:
+          type: DeclarationTransitUEMOA
+          example: |
+            {
+              "numeroDeclaration": "TRA-SEN-2025-001",
+              "paysDepart": "SEN",
+              "paysDestination": "MLI",
+              "transporteur": "TRANSPORT SAHEL",
+              "modeTransport": "ROUTIER",
+              "itineraire": "Dakar-Bamako via Kayes", 
+              "delaiRoute": "72 heures",
+              "marchandises": [
+                {
+                  "designation": "Produits manufacturés",
+                  "poids": 5000,
+                  "nombreColis": 100
                 }
-              }
+              ]
+            }
+      responses:
+        200:
+          body:
+            application/json:
+              example: |
+                {
+                  "status": "SUCCESS",
+                  "message": "Déclaration transit créée - Étapes 1-6 terminées",
+                  "numeroDeclaration": "TRA-SEN-2025-001",
+                  "etapesCompletees": "1-6",
+                  "prochaine_etape": "10-11: Transmission copie Mali",
+                  "workflow": "TRANSIT",
+                  "delaiRoute": "72 heures",
+                  "timestamp": "2025-01-15T09:00:00Z"
+                }
+
+  /arrivee:
+    post:
+      description: |
+        ÉTAPE 14: Réception message arrivée transit depuis Mali
+        Le Kit MuleSoft reçoit la confirmation d'arrivée et traite l'étape 16.
+      headers:
+        X-Source-Country:
+          example: MLI
+          required: true
+        X-Workflow-Step:
+          example: "14_ARRIVEE_MALI"
+      body:
+        application/json:
+          example: |
+            {
+              "numeroDeclaration": "TRA-SEN-2025-001",
+              "bureauArrivee": "10S_BAMAKO",
+              "dateArrivee": "2025-01-18T10:30:00Z",
+              "controleEffectue": true,
+              "visaAppose": true,
+              "conformiteItineraire": true,
+              "delaiRespecte": true,
+              "declarationDetailDeposee": false
+            }
+      responses:
+        200:
+          body:
+            application/json:
+              example: |
+                {
+                  "status": "SUCCESS", 
+                  "message": "Message arrivée transit traité - Confirmation vers Sénégal",
+                  "numeroDeclaration": "TRA-SEN-2025-001",
+                  "etapeWorkflow": 16,
+                  "prochaine_etape": "17-18: Apurement Sénégal",
+                  "workflow": "TRANSIT",
+                  "confirmationVers": "Senegal",
+                  "timestamp": "2025-01-18T10:35:00Z"
+                }
+
+# Endpoints de support
+
+/apurement:
+  /notification:
+    post:
+      description: |
+        Notification apurement depuis Sénégal (étape 20+)
+        Support pour finalisation workflow libre pratique.
+      headers:
+        X-Source-Country:
+          example: SEN
+          required: true
+        X-Payment-Reference:
+          example: PAY-MLI-2025-001
+      body:
+        application/json:
+          example: |
+            {
+              "numeroManifeste": "5016",
+              "referencePaiement": "PAY-MLI-2025-001",
+              "typeApurement": "LEVEE_MARCHANDISE",
+              "dateApurement": "2025-01-15T18:00:00Z",
+              "paysApurement": "SEN",
+              "portApurement": "Port de Dakar",
+              "agentConfirmation": "AGENT_DOUANES_DAKAR",
+              "bonEnlever": "BAE_SEN_20250115180000"
+            }
+      responses:
+        200:
+          body:
+            application/json:
+              example: |
+                {
+                  "status": "SUCCESS",
+                  "message": "Notification apurement reçue par Kit MuleSoft", 
+                  "numeroManifeste": "5016",
+                  "dateNotification": "2025-01-15T18:05:00Z",
+                  "kitProcessing": {
+                    "correlationId": "SEN_FINAL_20250115_5016",
+                    "source": "KIT_INTERCONNEXION_UEMOA",
+                    "etapeWorkflow": "20_NOTIFICATION_APUREMENT"
+                  },
+                  "instructions": [
+                    "Notification transmise à la Commission UEMOA",
+                    "Workflow libre pratique en cours de finalisation"
+                  ],
+                  "timestamp": "2025-01-15T18:05:00Z"
+                }

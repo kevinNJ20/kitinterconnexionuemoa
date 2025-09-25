@@ -2,29 +2,39 @@
 
 ## Vue d'ensemble
 
-Le **Kit d'Interconnexion UEMOA** est une solution MuleSoft permettant l'interconnexion des systèmes informatiques douaniers des États membres de l'Union Économique et Monétaire Ouest Africaine (UEMOA) dans le cadre de la mise en œuvre du régime de la libre pratique.
+Le **Kit d'Interconnexion UEMOA** est une solution MuleSoft permettant l'interconnexion des systèmes informatiques douaniers des États membres de l'Union Économique et Monétaire Ouest Africaine (UEMOA) dans le cadre de la mise en œuvre du régime de la libre pratique et du transit.
 
 Cette API facilite les échanges de données entre les pays côtiers (points d'entrée) et les pays de l'hinterland (destinations finales) pour le suivi des marchandises et des procédures douanières.
 
 ## Contexte métier
 
-Dans le cadre de l'UEMOA, lorsqu'une marchandise arrive dans un pays côtier (exemple : Côte d'Ivoire) mais est destinée à un pays de l'hinterland (exemple : Burkina Faso), le système doit :
+Dans le cadre de l'UEMOA, lorsqu'une marchandise arrive dans un pays côtier (exemple : Sénégal) mais est destinée à un pays de l'hinterland (exemple : Mali), le système doit :
 
-1. **Réceptionner le manifeste** depuis le pays d'arrivée
-2. **Router les informations** vers le pays de destination
-3. **Notifier la Commission UEMOA** pour traçabilité
-4. **Recevoir les notifications de paiement** du pays de destination
-5. **Autoriser la mainlevée** vers le pays d'origine
+### Workflow Libre Pratique (21 étapes)
+1. **ÉTAPES 4-5** : Réception et transmission du manifeste depuis le Sénégal (Port de Dakar)
+2. **ÉTAPES 6-13** : Traitement par le Mali (réception, déclaration en détail)
+3. **ÉTAPES 14-16** : Soumission déclaration et paiement par le Mali
+4. **ÉTAPE 17** : Transmission autorisation mainlevée vers le Sénégal
+5. **ÉTAPES 18-19** : Traitement final au Sénégal
+6. **ÉTAPES 20-21** : Notification et traçabilité Commission UEMOA
+
+### Workflow Transit (16 étapes)
+1. **ÉTAPES 1-6** : Création déclaration transit au Sénégal
+2. **ÉTAPES 10-11** : Transmission copie vers le Mali
+3. **ÉTAPES 13-14** : Arrivée et contrôle au Mali
+4. **ÉTAPE 16** : Confirmation retour vers le Sénégal
+5. **ÉTAPES 17-18** : Apurement final au Sénégal
 
 ## Architecture technique
 
 ### Technologies utilisées
 
 - **MuleSoft Mule Runtime** 4.9.2
-- **APIKit** pour la spécification RAML
+- **Java** 17
+- **APIKit** 1.11.6 pour la spécification RAML
+- **Base de données Supabase** (PostgreSQL)
 - **Base de données H2** (en mémoire pour le développement)
-- **JMS ActiveMQ** pour le messaging asynchrone
-- **Java 17**
+- **JMS ActiveMQ** 5.16.7 pour le messaging asynchrone
 
 ### Structure du projet
 
@@ -33,27 +43,30 @@ kitinterconnexionuemoa/
 ├── src/main/
 │   ├── mule/
 │   │   ├── global.xml              # Configuration globale
-│   │   ├── interface.xml           # Endpoints API
+│   │   ├── interface.xml           # Endpoints API avec CORS
 │   │   └── implementation/
-│   │       └── kit-impl.xml        # Logique métier
+│   │       └── kit-impl.xml        # Logique métier (workflows)
 │   └── resources/
 │       ├── api/
 │       │   └── kitinterconnexionuemoa.raml  # Spécification API
 │       ├── configs/
 │       │   └── dev.yaml            # Configuration environnement
-│       └── db/
-│           ├── init.sql            # Scripts base de données
-│           └── init-interconnexion.sql
-└── pom.xml                         # Configuration Maven
+│       ├── db/
+│       │   ├── init.sql            # Scripts base de données H2
+│       │   └── init-interconnexion.sql  # Scripts Supabase
+│       └── log4j2.xml              # Configuration logging
+├── pom.xml                         # Configuration Maven
+└── README.md                       # Documentation projet
 ```
 
 ## Installation et démarrage
 
 ### Prérequis
 
-- Java 17+
-- Maven 3.6+
-- MuleSoft Anypoint Studio (optionnel pour le développement)
+- **Java 17+**
+- **Maven 3.6+**
+- **MuleSoft Anypoint Studio** (optionnel pour le développement)
+- **Accès Supabase** (pour la base de données de production)
 
 ### Configuration
 
@@ -75,17 +88,43 @@ http:
 
 # Configuration Systèmes Externes
 systeme:
-  paysA:
+  paysA:  # Sénégal - Port de Dakar
     host: "localhost"
-    port: "8081"
-  paysB:
-    host: "localhost"
-    port: "8082"
+    port: "3001"
+    url: "https://simulateur-pays-a-cotier.vercel.app"
+    endpoints:
+      health: "/api/health"
+      mainlevee: "/api/mainlevee/autorisation"
 
+  paysB:  # Mali - Bamako
+    host: "localhost"
+    port: "3002"
+    url: "https://simulateur-pays-b-hinterland.vercel.app"
+    endpoints:
+      health: "/api/health"
+      manifeste: "/api/manifeste/reception"
+
+# Configuration Commission UEMOA
 commission:
   uemoa:
     host: "localhost"
-    port: "8083"
+    port: "3003"
+    url: "https://simulateur-commission-uemoa.vercel.app"
+    endpoints:
+      health: "/api/health"
+      manifeste: "/api/tracabilite/manifeste"
+      declaration: "/api/tracabilite/declaration"
+      tracabilite: "/api/tracabilite/enregistrer"
+    auth:
+      token: "COMMISSION_TOKEN"
+
+# Configuration Supabase
+supabase:
+  url: "https://hgkuqkjvgshfrayjelps.supabase.co"
+  host: "hgkuqkjvgshfrayjelps.supabase.co"
+  port: "443"
+  anon_key: "your-anon-key"
+  service_role_key: "your-service-role-key"
 ```
 
 3. **Démarrage de l'application**
@@ -108,229 +147,454 @@ L'application sera accessible sur `http://localhost:8080`
 Une console interactive est disponible à l'adresse :
 `http://localhost:8080/console`
 
-### Endpoints disponibles
+### Endpoints principaux
 
-#### 1. Transmission de manifeste
+#### 1. Workflow Libre Pratique
+
+##### ÉTAPES 4-5 : Transmission de manifeste depuis Sénégal
 
 **POST** `/api/v1/manifeste/transmission`
 
 ```json
 {
-  "numeroManifeste": "MAN2025001",
-  "transporteur": "MAERSK LINE",
-  "portEmbarquement": "ROTTERDAM",
-  "portDebarquement": "ABIDJAN",
-  "dateArrivee": "2025-01-15",
-  "marchandises": [
+  "annee_manif": "2025",
+  "bureau_manif": "18N",
+  "numero_manif": 5016,
+  "consignataire": "MAERSK LINE SENEGAL",
+  "navire": "MARCO POLO",
+  "provenance": "ROTTERDAM",
+  "date_arrivee": "2025-01-15",
+  "paysOrigine": "SENEGAL",
+  "portDebarquement": "Port de Dakar",
+  "etapeWorkflow": 5,
+  "nbre_article": 1,
+  "articles": [
     {
-      "codeSH": "8703.21.10",
-      "designation": "Véhicule particulier",
-      "poidsBrut": 1500.00,
-      "nombreColis": 1,
-      "destinataire": "IMPORT SARL",
-      "paysDestination": "BFA"
+      "art": 1,
+      "pays_dest": "MALI",
+      "ville_dest": "BAMAKO",
+      "marchandise": "Véhicule particulier Toyota",
+      "poids": 1500,
+      "destinataire": "IMPORT SARL BAMAKO",
+      "connaissement": "233698813"
     }
   ]
 }
 ```
 
-#### 2. Notification de paiement
+##### ÉTAPES 14-16 : Réception déclaration depuis Mali
 
-**POST** `/api/v1/paiement/notification`
+**POST** `/api/v1/declaration/soumission`
 
 ```json
 {
-  "numeroDeclaration": "DEC2025001",
-  "manifesteOrigine": "MAN2025001",
-  "montantPaye": 250000.00,
-  "referencePaiement": "PAY2025001",
+  "numeroDeclaration": "DEC-MLI-2025-001",
+  "manifesteOrigine": "5016",
+  "anneeDecl": "2025",
+  "bureauDecl": "10S_BAMAKO",
+  "dateDecl": "2025-01-08",
+  "montantPaye": 250000,
+  "referencePaiement": "PAY-MLI-2025-001",
   "datePaiement": "2025-01-15T14:30:00Z",
-  "paysDeclarant": "BFA"
+  "paysDeclarant": "MLI",
+  "articles": [
+    {
+      "numArt": 1,
+      "codeSh": "8703210000",
+      "designationCom": "Véhicule Toyota Corolla",
+      "valeurCaf": 15000000,
+      "liquidation": 2500000
+    }
+  ]
 }
 ```
 
-#### 3. Vérification de santé
+#### 2. Workflow Transit
+
+##### ÉTAPES 1-6 : Création déclaration transit
+
+**POST** `/api/v1/transit/creation`
+
+```json
+{
+  "numeroDeclaration": "TRA-SEN-2025-001",
+  "paysDepart": "SEN",
+  "paysDestination": "MLI",
+  "transporteur": "TRANSPORT SAHEL",
+  "modeTransport": "ROUTIER",
+  "itineraire": "Dakar-Bamako via Kayes",
+  "delaiRoute": "72 heures",
+  "marchandises": [
+    {
+      "designation": "Produits manufacturés",
+      "poids": 5000,
+      "nombreColis": 100
+    }
+  ]
+}
+```
+
+##### ÉTAPE 14 : Message arrivée transit
+
+**POST** `/api/v1/transit/arrivee`
+
+```json
+{
+  "numeroDeclaration": "TRA-SEN-2025-001",
+  "bureauArrivee": "10S_BAMAKO",
+  "dateArrivee": "2025-01-18T10:30:00Z",
+  "controleEffectue": true,
+  "visaAppose": true,
+  "conformiteItineraire": true,
+  "delaiRespecte": true,
+  "declarationDetailDeposee": false
+}
+```
+
+#### 3. Endpoints de support
+
+##### Vérification de santé
 
 **GET** `/api/v1/health`
 
-Retourne l'état du service et ses informations de version.
+Retourne l'état détaillé du service, la connectivité aux systèmes externes, et les informations de version.
 
-## Endpoints Commission UEMOA
+##### Notification paiement
 
-### Endpoint de traçabilité
+**POST** `/api/v1/paiement/notification`
+
+Support pour les notifications de paiement dans le workflow existant.
+
+##### Traçabilité Commission UEMOA
 
 **POST** `/api/v1/tracabilite/enregistrer`
 
-Cet endpoint est utilisé en interne par le kit pour notifier la Commission UEMOA de manière asynchrone lors de la transmission de manifestes. Il n'est pas exposé publiquement mais constitue un point d'intégration crucial avec le système de la Commission.
+Enregistrement des opérations pour la traçabilité centralisée de la Commission UEMOA.
 
-**Structure des données envoyées :**
+##### Notification apurement
 
-```json
-{
-  "typeOperation": "TRANSMISSION_MANIFESTE",
-  "numeroOperation": "MAN2025001-20250115143000",
-  "paysOrigine": "CIV",
-  "paysDestination": "BFA",
-  "donneesMetier": {
-    "numeroManifeste": "MAN2025001",
-    "transporteur": "MAERSK LINE",
-    "nombreMarchandises": 1,
-    "valeurTotaleEstimee": 150000
-  },
-  "horodatage": "2025-01-15T14:30:00Z",
-  "source": "KIT_INTERCONNEXION"
-}
-```
+**POST** `/api/v1/apurement/notification`
 
-**Headers requis :**
-```
-Authorization: Bearer COMMISSION_TOKEN
-Content-Type: application/json
-```
-
-## Flux métier
-
-### 1. Réception manifeste (Pays A → Kit)
-- Validation des données du manifeste
-- Stockage en base de données
-- Routage vers le pays de destination
-- **Notification asynchrone de la Commission UEMOA via `/tracabilite/enregistrer`**
-
-### 2. Notification paiement (Pays B → Kit)
-- Validation de la notification de paiement
-- Stockage de la confirmation
-- Génération d'autorisation de mainlevée
-- Envoi de l'autorisation au pays d'origine
-
-### 3. Traçabilité Commission UEMOA
-- Enregistrement automatique de toutes les opérations de transmission
-- Génération d'un numéro d'opération unique
-- Envoi asynchrone pour éviter les blocages
-- Audit complet des échanges inter-pays
+Support pour la finalisation du workflow libre pratique depuis le Sénégal.
 
 ## Base de données
 
+### Configuration Supabase (Production)
+
+Le système utilise une base de données PostgreSQL hébergée sur Supabase pour le stockage persistant :
+
+- **URL** : `https://hgkuqkjvgshfrayjelps.supabase.co`
+- **Authentification** : Token-based avec clé anonyme et clé de service
+
 ### Tables principales
 
-- **manifestes_recus** : Stockage des manifestes reçus
+- **manifestes_recus** : Stockage des manifestes transmis depuis le Sénégal
+- **declarations_recues** : Déclarations soumises par le Mali
+- **declarations_transit** : Déclarations de transit
 - **paiements_recus** : Notifications de paiement
-- **autorisations_mainlevee** : Autorisations générées
-- **tracabilite_echanges** : Audit des échanges
-- **configurations_pays** : Configuration des pays membres
+- **autorisations_mainlevee** : Autorisations générées pour le Sénégal
+- **messages_arrivee** : Messages d'arrivée transit
+- **tracabilite_echanges** : Audit complet des échanges
+- **configurations_pays** : Configuration des pays membres UEMOA
+- **metriques_operations** : Métriques de performance du système
 
-### Initialisation
+### Base de données H2 (Développement)
 
-Les scripts SQL d'initialisation se trouvent dans `src/main/resources/db/` et sont exécutés automatiquement au démarrage.
+Pour le développement local, le système utilise une base H2 en mémoire avec initialisation automatique via les scripts dans `src/main/resources/db/`.
 
-## Monitoring et logs
+## Flux métier détaillés
 
-### Configuration des logs
+### 1. Workflow Libre Pratique (Sénégal → Mali)
 
-Les logs sont configurés via `log4j2.xml` et sont disponibles dans :
-- Console (développement)
-- Fichier `${mule.home}/logs/kitinterconnexionuemoa.log` (production)
+**Étapes 4-5 : Réception manifeste**
+- Le Kit reçoit l'extraction du manifeste depuis le Port de Dakar
+- Validation du format UEMOA
+- Stockage dans Supabase pour traçabilité
+- Routage automatique vers le Mali (Bamako)
 
-### Métriques
+**Étapes 14-16 : Traitement Mali**
+- Réception de la déclaration en détail depuis le Mali
+- Validation du paiement des droits et taxes
+- Stockage de la confirmation de paiement
+- Génération automatique d'autorisation de mainlevée
 
-Le système enregistre automatiquement :
-- Nombre d'opérations par type
-- Temps de réponse moyens
-- Taux d'erreur
-- Volume de données échangées
+**Étape 17 : Autorisation vers Sénégal**
+- Transmission de l'autorisation vers le Port de Dakar
+- Format conforme aux attentes du système sénégalais
+- Headers de traçabilité pour suivi complet
 
-## Sécurité
+**Étapes 20-21 : Traçabilité Commission**
+- Notification asynchrone de la Commission UEMOA
+- Enregistrement de toutes les opérations
+- Génération de statistiques centralisées
+
+### 2. Workflow Transit (Sénégal → Mali → Sénégal)
+
+**Étapes 1-6 : Création transit**
+- Déclaration de transit créée au Sénégal
+- Validation des informations de transport
+- Stockage avec délais et itinéraires
+
+**Étapes 10-11 : Transmission copie**
+- Copie de la déclaration envoyée vers le Mali
+- Instructions pour attendre l'arrivée
+- Préparation des contrôles de passage
+
+**Étape 14 : Message arrivée**
+- Confirmation d'arrivée depuis le Mali
+- Validation des contrôles effectués
+- Vérification du respect des délais
+
+**Étape 16 : Confirmation retour**
+- Transmission du message de confirmation vers le Sénégal
+- Données pour apurement de la déclaration transit
+- Libération des garanties
+
+## Sécurité et authentification
 
 ### Authentification
 
-- **Basic Auth** pour les connexions vers les systèmes externes
+- **Basic Auth** pour les connexions vers les systèmes externes (Sénégal/Mali)
 - **Bearer Token** pour les communications avec la Commission UEMOA
-- Headers de corrélation pour le traçage des requêtes
+- **Token-based** pour l'accès à Supabase
 
-### Headers recommandés
+### Headers de sécurité recommandés
 
-```
-X-Source-Country: [Code pays 3 lettres]
+```http
+X-Source-Country: [Code pays 3 lettres - SEN, MLI]
+X-Source-System: [Nom du système source]
 X-Correlation-ID: [ID unique de corrélation]
 X-Authorization-Source: KIT_INTERCONNEXION
+X-Manifeste-Format: UEMOA
+X-Workflow-Step: [Numéro d'étape du workflow]
 ```
 
-### Configuration Commission UEMOA
-
-Le système utilise un token Bearer pour s'authentifier auprès de la Commission UEMOA :
+### Configuration des tokens
 
 ```yaml
 # Dans dev.yaml
-api:
-  key:
-    commission: "COMMISSION_SECRET_KEY"
+commission:
+  uemoa:
+    auth:
+      token: "COMMISSION_SECRET_KEY"
+
+supabase:
+  anon_key: "your-supabase-anon-key"
+  service_role_key: "your-supabase-service-role-key"
 ```
 
-## Développement
+## Monitoring et observabilité
+
+### Configuration des logs
+
+Les logs sont configurés via `log4j2.xml` avec plusieurs niveaux :
+- **INFO** : Opérations normales, étapes des workflows
+- **ERROR** : Erreurs de traitement, échecs de communication
+- **DEBUG** : Détails des transformations de données
+
+Fichiers de logs :
+- Console (développement)
+- `${mule.home}/logs/kitinterconnexionuemoa.log` (production)
+
+### Métriques automatiques
+
+Le système enregistre dans la table `metriques_operations` :
+- Nombre d'opérations par type et par pays
+- Temps de réponse moyens
+- Taux d'erreur par endpoint
+- Volume de données échangées
+
+### Health Check détaillé
+
+L'endpoint `/api/v1/health` fournit :
+- État du Kit d'Interconnexion
+- Connectivité aux systèmes externes (Sénégal, Mali, Commission)
+- État de la base de données Supabase
+- Versions des workflows supportés
+- Endpoints actifs et leur statut
+
+## CORS et intégration frontend
+
+### Configuration CORS
+
+Le système supporte CORS pour l'intégration avec des applications web :
+
+```yaml
+cors:
+  enabled: "true"
+  origins:
+    - "*.vercel.app"
+    - "localhost"
+    - "127.0.0.1"
+```
+
+### Headers CORS supportés
+
+- `Content-Type`, `Authorization`
+- `X-Source-Country`, `X-Source-System`
+- `X-Correlation-ID`, `X-Workflow-Step`
+- `X-Authorization-Source`, `X-Manifeste-Format`
+
+## Développement et tests
 
 ### Variables d'environnement
 
-Le projet utilise des variables configurables via `dev.yaml` :
+Configuration flexible via `dev.yaml` :
+- URLs et ports des systèmes externes
+- Configuration base de données (H2/Supabase)
+- Clés d'API et tokens d'authentification
+- Niveaux de logging et timeouts
 
-- Ports et hosts des systèmes externes
-- Configuration base de données
-- Clés d'API et secrets
-- Niveaux de logging
-
-### Tests
+### Structure des tests
 
 ```bash
-# Exécution des tests
+# Exécution des tests unitaires
 mvn test
 
-# Tests d'intégration
+# Tests d'intégration avec systèmes externes
 mvn verify
-```
 
-## Déploiement
+# Test de connectivité
+curl http://localhost:8080/api/v1/health
+```
 
 ### Environnements
 
-- **Développement** : Configuration locale avec H2 en mémoire
-- **Test** : Base de données persistante
-- **Production** : Configuration haute disponibilité
+- **Développement** : H2 en mémoire, systèmes simulés localement
+- **Test** : Supabase avec données de test, systèmes de staging
+- **Production** : Supabase production, systèmes réels UEMOA
 
-### CloudHub (optionnel)
+## Déploiement
 
-Pour déployer sur Anypoint CloudHub :
+### Standalone
 
 ```bash
-mvn clean package deploy -DmuleDeploy
+# Construction du package
+mvn clean package
+
+# Déploiement local
+mvn mule:run
 ```
+
+### CloudHub (Anypoint Platform)
+
+```bash
+# Déploiement sur CloudHub
+mvn clean package deploy -DmuleDeploy -Dmule.application.name=kit-interconnexion-uemoa
+```
+
+### Configuration production
+
+Pour la production, ajuster dans `dev.yaml` :
+- URLs réelles des systèmes douaniers
+- Tokens et clés d'authentification de production
+- Configuration Supabase de production
+- Timeouts et retry appropriés pour les réseaux UEMOA
+
+## Codes d'erreur et gestion des erreurs
+
+### Codes de statut HTTP
+
+- **200** : Succès de l'opération
+- **400** : Erreur de validation des données (format UEMOA invalide)
+- **401** : Authentification requise ou invalide
+- **500** : Erreur interne du système
+- **503** : Service temporairement indisponible
+
+### Gestion des erreurs
+
+Le système inclut un gestionnaire global d'erreurs qui :
+- Capture toutes les exceptions non traitées
+- Retourne des réponses JSON structurées
+- Log les erreurs avec contexte complet
+- Préserve les headers CORS
+
+### Retry et résilience
+
+Configuration automatique de retry pour :
+- Communications avec systèmes externes (3 tentatives)
+- Accès base de données (2 tentatives)
+- Notifications Commission UEMOA (mode asynchrone)
+
+## Format UEMOA 2025.1
+
+### Support du format
+
+Le Kit supporte le format UEMOA 2025.1 avec :
+- Validation des structures de données
+- Transformation automatique entre pays
+- Normalisation des codes pays (SEN, MLI, BFA, etc.)
+- Mapping des champs selon les spécifications UEMOA
+
+### Pays supportés
+
+- **SEN** : Sénégal (Port de Dakar) - Pays côtier
+- **MLI** : Mali (Bamako) - Pays de l'hinterland
+- **BFA** : Burkina Faso - Support prévu
+- **NER** : Niger - Support prévu
+- **CIV** : Côte d'Ivoire - Support prévu
 
 ## Support et maintenance
 
-### Codes d'erreur
+### Support technique
 
-- **200** : Succès
-- **400** : Erreur de validation des données
-- **500** : Erreur interne du système
+Pour toute question technique :
+- Consulter la documentation Anypoint Exchange
+- Vérifier les logs applicatifs détaillés
+- Utiliser l'endpoint de santé `/api/v1/health`
+- Consulter les métriques dans Supabase
 
-### Intégration Commission UEMOA
+### Dépannage courant
 
-En cas de problème avec l'intégration Commission UEMOA :
-- Vérifier la configuration du token dans `dev.yaml`
-- Contrôler la connectivité réseau vers `${commission.uemoa.host}:${commission.uemoa.port}`
-- Consulter les logs pour les erreurs d'envoi asynchrone
-- Les échecs de notification Commission n'interrompent pas le flux principal
+**Problème de connectivité Commission UEMOA :**
+- Vérifier le token dans `dev.yaml`
+- Contrôler la connectivité réseau
+- Consulter les logs pour erreurs d'envoi asynchrone
+- Note : Les échecs Commission n'interrompent pas le flux principal
 
-### Contact technique
+**Erreurs de validation format UEMOA :**
+- Vérifier la structure JSON contre les types RAML
+- Contrôler les champs obligatoires (numero_manif, pays_dest)
+- Valider les codes pays normalisés
 
-Pour toute question technique ou support :
-- Documentation Anypoint Exchange
-- Logs applicatifs détaillés
-- Endpoint de santé `/api/v1/health`
+**Performance lente :**
+- Vérifier les métriques dans la base de données
+- Ajuster les timeouts dans `dev.yaml`
+- Contrôler l'état des systèmes externes via health check
 
-## Licence
+## Évolutions et roadmap
 
-Ce projet est développé dans le cadre de l'interconnexion des systèmes douaniers UEMOA.
+### Version actuelle : 1.0.0-UEMOA
+
+- Support complet workflows Libre Pratique et Transit
+- Intégration Sénégal-Mali fonctionnelle
+- Traçabilité Commission UEMOA opérationnelle
+- Base de données Supabase intégrée
+
+### Prochaines versions
+
+- Support d'autres pays UEMOA (Burkina Faso, Niger, Côte d'Ivoire)
+- Interface d'administration web
+- API de reporting et statistiques
+- Support du format EDI UEMOA
+- Intégration avec systèmes de paiement BCEAO
+
+## Licence et conformité
+
+Ce projet est développé dans le cadre de l'interconnexion des systèmes douaniers UEMOA selon les spécifications techniques de la Commission UEMOA.
+
+**Conformité :**
+- Format UEMOA 2025.1
+- Workflow Libre Pratique 21 étapes
+- Workflow Transit 16 étapes
+- Traçabilité centralisée Commission UEMOA
 
 ---
 
-**Version** : 1.0.0-SNAPSHOT  
+**Version** : 1.0.0-UEMOA  
 **Runtime** : Mule 4.9.2  
-**Dernière mise à jour** : Juin 2025
+**Java** : 17  
+**Format** : UEMOA 2025.1  
+**Dernière mise à jour** : Janvier 2025
+
+**Architecture** : Sénégal (Pays A) ↔ Kit MuleSoft ↔ Mali (Pays B) ↔ Commission UEMOA

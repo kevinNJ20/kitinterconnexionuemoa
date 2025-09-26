@@ -17,7 +17,7 @@ Sénégal (Pays A) ↔ Kit MuleSoft ↔ Mali (Pays B)
         http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
 
     <!-- ✅ FLOW PRINCIPAL avec CORS amélioré -->
-    <flow name="kitinterconnexionuemoa-main" doc:id="d1e3b9bb-ab7d-4cb5-a9fb-ee6528f42b16">
+    <flow name="kitinterconnexionuemoa-main" doc:id="f77f8f2c-0acf-4ae1-9048-97512ac843e3">
         <http:listener path="/api/v1/*" config-ref="kitinterconnexionuemoa-httpListenerConfig">
             <http:response statusCode="#[vars.httpStatus default 200]">
                 <http:headers><![CDATA[#[vars.outboundHeaders ++ vars.corsHeaders default vars.corsHeaders]]]></http:headers>
@@ -62,7 +62,7 @@ output application/json
     </flow>
     
     <!-- ✅ Sub-flow CORS amélioré pour Kit UEMOA -->
-    <sub-flow name="cors-headers" doc:id="de329ad7-b89f-472f-8d26-369f5a379f31">
+    <sub-flow name="cors-headers" doc:id="a71f3447-dc5c-4c9d-9c28-56c9dc85424e">
         <set-variable value="#[{
     &quot;Access-Control-Allow-Origin&quot;: &quot;*&quot;,
     &quot;Access-Control-Allow-Methods&quot;: &quot;GET, POST, PUT, DELETE, OPTIONS&quot;,
@@ -77,7 +77,7 @@ output application/json
     </sub-flow>
     
     <!-- ✅ CONSOLE FLOW avec CORS -->
-    <flow name="kitinterconnexionuemoa-console" doc:id="4a2173c2-a572-4389-8f25-9ae836aac63c">
+    <flow name="kitinterconnexionuemoa-console" doc:id="d4eb2a64-23b4-428f-91ac-0913db950012">
         <http:listener path="/console/*" config-ref="kitinterconnexionuemoa-httpListenerConfig">
             <http:response statusCode="#[vars.httpStatus default 200]">
                 <http:headers><![CDATA[#[vars.outboundHeaders ++ vars.corsHeaders default vars.corsHeaders]]]></http:headers>
@@ -96,19 +96,19 @@ output application/json
     <!-- ✅ ENDPOINTS PRINCIPAUX - Workflow Libre Pratique (21 étapes) -->
     
     <!-- ÉTAPES 4-5: Réception manifeste depuis Sénégal (Pays A) -->
-    <flow name="post:\manifeste\transmission:application\json:kitinterconnexionuemoa-config" doc:id="0639d438-f651-4866-a383-17a2b5a97d62">
+    <flow name="post:\manifeste\transmission:application\json:kitinterconnexionuemoa-config" doc:id="c204fa5c-26bb-448e-8780-933fcd172a53">
         <logger level="INFO" message="📨 [Kit] ÉTAPES 4-5: Réception manifeste depuis Sénégal: #[attributes.headers['x-source-country'] default 'unknown']" doc:name="Log Manifeste Reception" />
         <flow-ref doc:name="Process Manifeste from Senegal" name="receive-manifeste-from-senegal" />
     </flow>
     
     <!-- ÉTAPES 14-16: Réception déclaration depuis Mali (Pays B) -->
-    <flow name="post:\declaration\soumission:application\json:kitinterconnexionuemoa-config" doc:id="29933018-e508-41df-9c54-99059e27b5db">
+    <flow name="post:\declaration\soumission:application\json:kitinterconnexionuemoa-config" doc:id="0ec2abbb-6f53-4df7-866c-e2edd1374f81">
         <logger level="INFO" message="📋 [Kit] ÉTAPES 14-16: Réception déclaration depuis Mali: #[attributes.headers['x-source-country'] default 'unknown']" doc:name="Log Declaration Reception" />
         <flow-ref doc:name="Process Declaration from Mali" name="receive-declaration-from-mali" />
     </flow>
     
     <!-- ÉTAPES 20-21: Traçabilité Commission UEMOA -->
-    <flow name="post:\tracabilite\enregistrer:application\json:kitinterconnexionuemoa-config" doc:id="0a2efea1-bb55-4c28-90e4-7956962cdb74">
+    <flow name="post:\tracabilite\enregistrer:application\json:kitinterconnexionuemoa-config" doc:id="b388bc32-8cc0-441e-a005-9e02060e4516">
         <logger level="INFO" message="📊 [Kit] Traçabilité Commission UEMOA: #[attributes.headers['x-source-system'] default 'unknown']" doc:name="Log Trace Request" />
         <flow-ref doc:name="Process Commission Trace" name="record-commission-trace" />
     </flow>
@@ -116,13 +116,13 @@ output application/json
     <!-- ✅ ENDPOINTS TRANSIT - Workflow Transit (16 étapes) -->
     
     <!-- ÉTAPES 1-6: Création déclaration transit depuis Sénégal -->
-    <flow name="post:\transit\creation:application\json:kitinterconnexionuemoa-config" doc:id="c9da7f39-e030-4755-b404-e247fd452257">
+    <flow name="post:\transit\creation:application\json:kitinterconnexionuemoa-config" doc:id="14dfba47-dc48-4591-801e-284ace656f3f">
         <logger level="INFO" message="🚛 [Kit] ÉTAPES 1-6: Création transit depuis Sénégal: #[attributes.headers['x-source-country'] default 'unknown']" doc:name="Log Transit Creation" />
         <flow-ref doc:name="Process Transit Creation" name="receive-transit-from-senegal" />
     </flow>
     
     <!-- ÉTAPE 14: Message arrivée transit depuis Mali -->
-    <flow name="post:\transit\arrivee:application\json:kitinterconnexionuemoa-config" doc:id="34466d18-b31f-44af-9949-6601cfcbffbb">
+    <flow name="post:\transit\arrivee:application\json:kitinterconnexionuemoa-config" doc:id="c537b5de-582b-4fe2-b831-0862b27b969e">
         <logger level="INFO" message="📥 [Kit] ÉTAPE 14: Message arrivée transit depuis Mali: #[attributes.headers['x-source-country'] default 'unknown']" doc:name="Log Transit Arrival" />
         <flow-ref doc:name="Process Transit Arrival" name="receive-arrival-message-from-mali" />
     </flow>
@@ -130,13 +130,13 @@ output application/json
     <!-- ✅ ENDPOINTS DE SUPPORT -->
     
     <!-- Health Check détaillé -->
-    <flow name="get:\health:kitinterconnexionuemoa-config" doc:id="f15ab746-10dd-4ffc-83c5-83569e56ad3f">
+    <flow name="get:\health:kitinterconnexionuemoa-config" doc:id="ca8edbde-6b1d-41f3-99da-b7efa24a97d2">
         <logger level="INFO" message="🏥 [Kit] Health check demandé depuis: #[attributes.headers['user-agent'] default 'unknown']" doc:name="Log Health Request" />
         <flow-ref doc:name="Execute Health Check" name="health-check" />
     </flow>
     
     <!-- Notification apurement depuis Sénégal (étape 20+) -->
-    <flow name="post:\apurement\notification:application\json:kitinterconnexionuemoa-config" doc:id="9facd90a-b018-49f3-90bc-3abf001645af">
+    <flow name="post:\apurement\notification:application\json:kitinterconnexionuemoa-config" doc:id="e4736475-1334-4d9c-95f3-bb0243c84bd5">
         <logger level="INFO" message="🔓 [Kit] Notification apurement depuis Sénégal: #[payload.numeroManifeste default 'unknown']" doc:name="Log Apurement Notification" />
         <ee:transform doc:name="Transform Apurement Response">
             <ee:message>
@@ -166,7 +166,7 @@ output application/json
     <!-- ✅ ENDPOINTS MANQUANTS SELON RAML -->
     
     <!-- Notification paiement (workflow existant) -->
-    <flow name="post:\paiement\notification:application\json:kitinterconnexionuemoa-config" doc:id="43fbeb72-28ae-4463-95a7-044bf7178b10">
+    <flow name="post:\paiement\notification:application\json:kitinterconnexionuemoa-config" doc:id="00a4772e-3831-4df4-b6ed-91848721ad71">
         <logger level="INFO" message="💳 [Kit] Notification paiement: #[payload.numeroDeclaration default 'unknown'] depuis: #[attributes.headers['x-source-country'] default 'unknown']" doc:name="Log Payment Notification" />
         
         <!-- Stocker dans Supabase -->
@@ -198,7 +198,7 @@ output application/json
     <!-- ✅ SUB-FLOWS pour traitement interne des étapes manquantes -->
     
     <!-- Sub-flow pour traçabilité Commission -->
-    <sub-flow name="record-commission-trace" doc:id="783628d5-0c2a-46d5-b680-1a856fcc1d6f">
+    <sub-flow name="record-commission-trace" doc:id="59362d71-1bbd-4f62-83af-2d7853f0cce9">
         <ee:transform doc:name="Transform Commission Data">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0

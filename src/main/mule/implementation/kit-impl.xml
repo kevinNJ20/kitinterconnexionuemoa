@@ -84,7 +84,8 @@ output application/json
                 
                 <!-- ✅ Stockage Supabase -->
                 <http:request method="POST" doc:name="Store in Supabase" config-ref="supabaseRestConfig" 
-                              path="${supabase.rest.base_path}${supabase.rest.endpoints.manifestes}"/>
+                              path="${supabase.rest.base_path}${supabase.rest.endpoints.manifestes}">
+				</http:request>
                 
                 <logger level="INFO" message="✅ [Kit] Manifeste stocké dans Supabase: #[vars.incoming.numero_manif]" doc:name="Log Storage Success" />
                 
@@ -125,69 +126,82 @@ output application/json
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
-// ✅ Filtrer articles destinés au Mali uniquement
-var articlesDestinationMali = vars.incoming.articles filter ((article) -> 
-    article.pays_dest contains "MALI" or article.ville_dest contains "BAMAKO"
-)
+// ✅ CORRECTION: Filtrer articles destinés au Mali avec vérification null
+var articlesDestinationMali = if (vars.incoming.articles != null) 
+    (vars.incoming.articles filter ((article) -> 
+        (article.pays_dest contains ("MALI")) or (article.ville_dest contains ("BAMAKO"))
+    ))
+else []
 ---
 {
-    // ✅ En-tête manifeste pour Mali
-    manifeste_origine: {
-        format: "UEMOA",
-        numero_manifeste: vars.incoming.numero_manif,
+    // ✅ CORRECTION: Format UEMOA standard avec "manifeste" (pas "manifeste_origine")
+    manifeste: {
+        // Identification manifeste
+        numero_origine: vars.incoming.numero_manif as String,
         annee_manifeste: vars.incoming.annee_manif,
         bureau_origine: vars.incoming.bureau_manif,
+        
+        // Transport
         consignataire: vars.incoming.consignataire,
+        transporteur: vars.incoming.consignataire,
         navire: vars.incoming.navire,
         provenance: vars.incoming.provenance,
-        pavillon: vars.incoming.pavillon,
+        pavillon: vars.incoming.pavillon default "NON_SPECIFIE",
         date_arrivee: vars.incoming.date_arrivee,
         
-        // ✅ Identification précise des pays
-        pays_origine: "SEN",           // Sénégal
-        pays_destination: "MLI",       // Mali
-        port_debarquement: "Port de Dakar",
-        etape_workflow: 5
+        // Informations workflow
+        format: "UEMOA",
+        pays_origine: "SEN",
+        pays_destination: "MLI",
+        port_origine: "Port de Dakar",
+        port_destination: "Bamako",
+        etape_workflow: 5,
+        
+        // Statistiques
+        valapprox: vars.incoming.valapprox default 0,
+        nbre_article: sizeOf(articlesDestinationMali)
     },
     
-    // ✅ Articles filtrés pour Mali uniquement (étapes 6-7)
-    articles_mali: articlesDestinationMali map ((article, index) -> {
+    // ✅ CORRECTION: Format UEMOA avec "articles" (pas "articles_mali") - jamais null
+    articles: articlesDestinationMali map ((article, index) -> {
+        // Informations article
+        art: article.art,
         position: index + 1,
         numero_article: article.art,
         
-        // Informations marchandise
-        description: article.marchandise,
-        poids_brut: article.poids,
-        nombre_colis: article.nbre_colis,
-        marque: article.marque,
-        mode_conditionnement: article.mode_cond,
+        // Destination Mali
+        pays_dest: "MALI",
+        ville_dest: article.ville_dest default "BAMAKO",
+        destinataire: article.destinataire,
+        voie_dest: article.voie_dest,
+        ordre: article.ordre default (index + 1),
         
-        // Informations expédition
-        date_embarquement: article.date_emb,
-        lieu_embarquement: article.lieu_emb,
+        // Description marchandise
+        marchandise: article.marchandise,
+        description: article.marchandise,
+        
+        // Poids et dimensions
+        poids: article.poids,
+        poids_brut: article.poids,
+        poids_net: article.poids,
+        nbre_colis: article.nbre_colis default 1,
+        nombre_colis: article.nbre_colis default 1,
+        
+        // Conditionnement
+        marque: article.marque,
+        mode_cond: article.mode_cond,
+        
+        // Expédition
+        date_emb: article.date_emb,
+        lieu_emb: article.lieu_emb,
         connaissement: article.connaissement,
         expediteur: article.expediteur,
         
-        // ✅ Informations destination Mali
-        destinataire: article.destinataire,
-        ville_destination: article.ville_dest,  // Bamako normalement
-        pays_destination: "MALI",
-        voie_destination: article.voie_dest,
-        ordre: article.ordre,
-        
         // Conteneurs
         conteneurs: article.conteneurs,
-        nombre_conteneurs: article.nbre_conteneur
-    }),
-    
-    // ✅ Métadonnées workflow
-    metadata: {
-        correlation_id: vars.correlationId,
-        etape_actuelle: 5,
-        prochaine_etape: "6-7_RECEPTION_MALI",
-        date_transmission: now(),
-        source_kit: "KIT_INTERCONNEXION_UEMOA"
-    }
+        nbre_conteneur: article.nbre_conteneur default 0,
+        nombre_conteneurs: article.nbre_conteneur default 0
+    })
 }]]></ee:set-payload>
             </ee:message>
         </ee:transform>
@@ -258,7 +272,8 @@ output application/json
         
         <!-- ✅ Stockage dans Supabase -->
         <http:request method="POST" doc:name="Store Declaration in Supabase" config-ref="supabaseRestConfig" 
-                      path="${supabase.rest.base_path}${supabase.rest.endpoints.declarations}"/>
+                      path="${supabase.rest.base_path}${supabase.rest.endpoints.declarations}">
+		</http:request>
         
         <logger level="INFO" message="✅ [Kit] Déclaration Mali stockée dans Supabase: #[vars.incoming.numeroDeclaration]" doc:name="Log Declaration Stored" />
         
@@ -384,7 +399,8 @@ output application/json
         
         <!-- ✅ Stockage dans Supabase -->
         <http:request method="POST" doc:name="Store Transit in Supabase" config-ref="supabaseRestConfig" 
-                      path="${supabase.rest.base_path}${supabase.rest.endpoints.declarations_transit}"/>
+                      path="${supabase.rest.base_path}${supabase.rest.endpoints.declarations_transit}">
+		</http:request>
         
         <logger level="INFO" message="✅ [Kit] Transit Sénégal stocké: #[vars.incoming.numeroDeclaration]" doc:name="Log Transit Stored" />
         
@@ -516,7 +532,8 @@ output application/json
         
         <!-- ✅ Stockage dans Supabase -->
         <http:request method="POST" doc:name="Store Arrival Message" config-ref="supabaseRestConfig" 
-                      path="${supabase.rest.base_path}${supabase.rest.endpoints.messages_arrivee}"/>
+                      path="${supabase.rest.base_path}${supabase.rest.endpoints.messages_arrivee}">
+		</http:request>
         
         <logger level="INFO" message="✅ [Kit] Message arrivée Mali stocké: #[vars.incoming.numeroDeclaration]" doc:name="Log Arrival Stored" />
         
@@ -726,23 +743,24 @@ output application/json
         <!-- ✅ Tests connectivité systèmes -->
         <try doc:name="Test Systems Connectivity">
             <!-- Test Sénégal -->
-            <http:request method="GET" doc:name="Test Senegal" config-ref="paysAConfig" 
-                          path="${systeme.paysA.endpoints.health}"/>
+            <!-- [STUDIO:"Test Senegal"]<http:request method="GET" doc:name="Test Senegal" config-ref="paysAConfig" 
+                          path="${systeme.paysA.endpoints.health}"/> [STUDIO] -->
             <set-variable value="UP" doc:name="Senegal UP" variableName="senegalStatus" />
             
             <!-- Test Mali -->
-            <http:request method="GET" doc:name="Test Mali" config-ref="paysBConfig" 
-                          path="/api/health"/>
+            <!-- [STUDIO:"Test Mali"]<http:request method="GET" doc:name="Test Mali" config-ref="paysBConfig" 
+                          path="/api/health"/> [STUDIO] -->
             <set-variable value="UP" doc:name="Mali UP" variableName="maliStatus" />
             
             <!-- Test Commission -->
-            <http:request method="GET" doc:name="Test Commission" config-ref="commissionConfig" 
-                          path="${commission.uemoa.endpoints.health}"/>
+            <!-- [STUDIO:"Test Commission"]<http:request method="GET" doc:name="Test Commission" config-ref="commissionConfig" 
+                          path="${commission.uemoa.endpoints.health}"/> [STUDIO] -->
             <set-variable value="UP" doc:name="Commission UP" variableName="commissionStatus" />
             
             <!-- Test Supabase -->
             <http:request method="GET" doc:name="Test Supabase" config-ref="supabaseRestConfig" 
-                          path="${supabase.rest.base_path}${supabase.rest.endpoints.configurations}?limit=1"/>
+                          path="${supabase.rest.base_path}${supabase.rest.endpoints.configurations}?limit=1">
+			</http:request>
             <set-variable value="UP" doc:name="Supabase UP" variableName="supabaseStatus" />
             
             <error-handler>

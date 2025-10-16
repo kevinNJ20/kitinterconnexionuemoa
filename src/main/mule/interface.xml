@@ -147,7 +147,7 @@ output application/json
     status: "SUCCESS",
     message: "Notification apurement reçue par Kit MuleSoft",
     numeroManifeste: payload.numeroManifeste,
-    dateNotification: now(),
+    dateNotification: payload.dateApurement,
     kitProcessing: {
         correlationId: attributes.headers['x-correlation-id'] default uuid(),
         source: "KIT_INTERCONNEXION_UEMOA",

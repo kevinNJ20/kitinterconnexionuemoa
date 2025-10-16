@@ -362,24 +362,46 @@ output application/json
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
+fun normaliserCodePays(pays) = 
+    if (pays == null or pays == "") "MLI"
+    else if (pays == "MALI") "MLI"
+    else if (pays == "SÉNÉGAL" or pays == "SENEGAL") "SEN"
+    else if (pays == "BURKINA FASO" or pays == "BURKINA") "BFA"
+    else if (pays == "NIGER") "NER"
+    else if (pays == "CÔTE D'IVOIRE" or pays == "COTE D'IVOIRE") "CIV"
+    else if (pays == "TOGO") "TGO"
+    else if (pays == "BÉNIN" or pays == "BENIN") "BEN"
+    else if (pays == "GUINÉE-BISSAU") "GNB"
+    else if (sizeOf(pays) > 3) upper(pays[0 to 2])
+    else upper(pays)
 ---
 {
     numero_declaration: vars.incoming.numeroDeclaration,
-    type_declaration: "TRANSIT",
-    pays_depart: "SEN",  // Sénégal
-    pays_destination: vars.incoming.paysDestination default "MLI",  // Mali
+    annee_declaration: vars.incoming.anneeDeclaration default (now() as String {format: "yyyy"}),
     
-    // ✅ Informations transit (étapes 1-6)
+    // Bureaux
     bureau_depart: vars.incoming.bureauDepart default "18N_DAKAR",
-    date_creation: vars.incoming.dateCreation default now(),
+    bureau_destination: vars.incoming.bureauDestination,
+    
+    // ✅ CORRECTION: Normalisation codes pays sur 3 caractères
+    pays_depart: normaliserCodePays(vars.incoming.paysDepart default "SEN"),
+    pays_destination: normaliserCodePays(vars.incoming.paysDestination default "MLI"),
+    
+    // Transport
     transporteur: vars.incoming.transporteur,
     mode_transport: vars.incoming.modeTransport default "ROUTIER",
     itineraire: vars.incoming.itineraire,
     delai_route: vars.incoming.delaiRoute,
     
-    // ✅ Garanties et cautions (étape 6)
+    // Garanties et cautions (étape 6)
     caution_requise: vars.incoming.cautionRequise default 0,
     reference_caution: vars.incoming.referenceCaution,
+    type_garantie: vars.incoming.typeGarantie default "CAUTION",
+    
+    // Workflow
+    etape_workflow: 6,
+    workflow_type: "TRANSIT",
+    statut: "CREE",
     
     // ✅ Données complètes transit
     data_json: {
@@ -388,11 +410,14 @@ output application/json
         workflow_type: "TRANSIT",
         pays_depart: "Sénégal",
         port_depart: "Port de Dakar",
-        prochaine_etape: "10_DEBUT_OPERATION_TRANSIT"
+        prochaine_etape: "10_DEBUT_OPERATION_TRANSIT",
+        marchandises: vars.incoming.marchandises default []
     },
     
+    // Dates - format ISO 8601 standard
+    date_creation: vars.incoming.dateCreation default now(),
     date_reception: now(),
-    statut: "TRANSIT_CREE_SENEGAL"
+    date_modification: now()
 }]]></ee:set-payload>
             </ee:message>
         </ee:transform>
@@ -552,36 +577,36 @@ output application/json
 output application/json
 ---
 {
-    // ✅ Message arrivée pour apurement transit Sénégal
+    // ✅ CORRECTION: Utiliser camelCase pour cohérence avec le reste du code
     messageArrivee: {
-        numero_declaration: vars.incoming.numeroDeclaration,
-        pays_destination: "Mali",
-        bureau_arrivee: vars.incoming.bureauArrivee default "10S_BAMAKO",
-        date_arrivee: vars.incoming.dateArrivee default now(),
+        numeroDeclaration: vars.incoming.numeroDeclaration,
+        paysDestination: "Mali",
+        bureauArrivee: vars.incoming.bureauArrivee default "10S_BAMAKO",
+        dateArrivee: vars.incoming.dateArrivee default now(),
         
         // ✅ Résultats contrôles Mali
-        controle_effectue: vars.incoming.controleEffectue default true,
-        visa_appose: vars.incoming.visaAppose default true,
-        conformite_itineraire: vars.incoming.conformiteItineraire default true,
-        delai_respecte: vars.incoming.delaiRespecte default true,
+        controleEffectue: vars.incoming.controleEffectue default true,
+        visaAppose: vars.incoming.visaAppose default true,
+        conformiteItineraire: vars.incoming.conformiteItineraire default true,
+        delaiRespecte: vars.incoming.delaiRespecte default true,
         
         // ✅ Informations pour apurement Sénégal (étapes 17-18)
-        declaration_detail_deposee: vars.incoming.declarationDetailDeposee default false,
-        numero_declaration_detail: vars.incoming.numeroDeclarationDetail,
-        transit_termine: true,
+        declarationDetailDeposee: vars.incoming.declarationDetailDeposee default false,
+        numeroDeclarationDetail: vars.incoming.numeroDeclarationDetail,
+        transitTermine: true,
         
         // ✅ Métadonnées workflow
-        etape_workflow: 16,
-        type_message: "CONFIRMATION_ARRIVEE_TRANSIT",
-        demande_apurement: true,
-        liberer_garanties: true
+        etapeWorkflow: 16,
+        typeMessage: "CONFIRMATION_ARRIVEE_TRANSIT",
+        demandeApurement: true,
+        libererGaranties: true
     },
     
     metadata: {
-        correlation_id: vars.correlationId,
-        source_pays: "Mali",
-        destination_pays: "Sénégal",
-        workflow_type: "TRANSIT"
+        correlationId: vars.correlationId,
+        sourcePays: "Mali",
+        destinationPays: "Sénégal",
+        workflowType: "TRANSIT"
     }
 }]]></ee:set-payload>
             </ee:message>
@@ -696,22 +721,37 @@ output application/json
     paysOrigine: "SEN",  // Sénégal
     paysDestination: "MLI",  // Mali
     
-    // ✅ Données finales workflow
+    // ✅ CORRECTION: Données finales workflow plus complètes
     donneesMetier: {
+        // Informations déclaration
         numero_declaration: vars.incoming.numeroDeclaration,
         manifeste_origine: vars.incoming.manifesteOrigine,
+        bureau_declaration: vars.incoming.bureauDecl default "10S_BAMAKO",
+        annee_declaration: vars.incoming.anneeDecl default "2025",
+        date_declaration: vars.incoming.dateDecl default now(),
+        
+        // Informations paiement (étape 14-16)
         montant_paye: vars.incoming.montantPaye,
         reference_paiement: vars.incoming.referencePaiement,
+        date_paiement: vars.incoming.datePaiement default now(),
+        mode_paiement: vars.incoming.modePaiement default "ELECTRONIQUE_BCEAO",
+        
+        // Informations commerciales (si disponibles)
+        nombre_articles: vars.incoming.nombreArticles default 1,
+        valeur_totale_caf: vars.incoming.montantPaye,
+        liquidation_totale: vars.incoming.montantPaye,
         
         // ✅ Workflow complet
         etapes_completees: "1-21",
         workflow_type: "LIBRE_PRATIQUE",
         statut_final: "TERMINE_SUCCES",
         
+        // Traçabilité géographique
         pays_origine: "Sénégal",
         port_origine: "Port de Dakar", 
         pays_destination: "Mali",
-        ville_destination: "Bamako"
+        ville_destination: "Bamako",
+        bureau_destination: vars.incoming.bureauDecl default "10S_BAMAKO"
     },
     
     horodatage: now(),

@@ -1,0 +1,14 @@
+%dw 2.0
+
+type auto_4d4e8bc2_d423_451c_828a_f4aeb17298ff_Input_Payload = {|
+  status: String, 
+  message: String, 
+  numeroDeclaration: Any, 
+  etapes_completees: String, 
+  prochaine_etape: String, 
+  workflow_type: String, 
+  pays_depart: String, 
+  pays_destination: Any, 
+  timestamp: DateTime
+|}
+

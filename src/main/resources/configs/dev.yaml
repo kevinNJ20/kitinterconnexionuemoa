@@ -5,7 +5,7 @@
 
 # Configuration HTTP
 http:
-  port: "8080"
+  port: "8086"
   host: "0.0.0.0"
   
 # Configuration Sécurité  
@@ -45,6 +45,7 @@ commission:
       manifeste: "/api/tracabilite/manifeste"        # Pour les transmissions de manifeste
       declaration: "/api/tracabilite/declaration"    # Pour les soumissions de déclaration
       tracabilite: "/api/tracabilite/enregistrer"    # Endpoint générique (conservé pour compatibilité)
+      transit: "/api/tracabilite/transit"    # Pour les transmissions de transit
       statistiques: "/api/statistiques"
       dashboard: "/api/dashboard"
     auth:

@@ -451,6 +451,7 @@ output application/json
 }]]></ee:set-payload>
             </ee:message>
         </ee:transform>
+		<flow-ref doc:name="notify-commission-transit" doc:id="b3e2aaed-64b0-4e38-8ced-8967f46980ea" name="notify-commission-transit"/>
     </sub-flow>
 
     <!-- ✅ ÉTAPES 10-11: Envoi Copie Transit vers Mali -->
@@ -779,7 +780,41 @@ output application/json
     </sub-flow>
 
     <!-- ✅ HEALTH CHECK Kit d'Interconnexion -->
-    <sub-flow name="health-check" doc:id="004e345d-8b0d-4830-b452-3bcf4921ce6c">
+    <sub-flow name="notify-commission-transit" doc:id="4d4e8bc2-d423-451c-828a-f4aeb17298ff">
+		<async doc:name="Async Commission Transit Notification" doc:id="50eb77c4-8fec-45c9-b4c3-afe10c57a995">
+			<logger level="INFO" doc:name="Log Commission Transit" doc:id="467970b4-59ee-4aa3-89c2-24179e9b4b08" message="📊 [Kit] Notification Commission UEMOA - Transit: #[vars.incoming.numeroDeclaration]" />
+			<ee:transform doc:name="Transform for Commission Manifeste" doc:id="74560c15-0657-4faf-96d6-5468f10fa990">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+      typeOperation: "APUREMENT_TRANSIT",
+      numeroDeclaration: vars.incoming.numeroDeclaration,
+      paysDepart: "SEN",
+      paysDestination: "MLI",
+      dateApurement: vars.incoming.dateApurement,
+      dateArrivee: now(),
+      conformiteItineraire: vars.incoming.itineraire default true,
+      delaiRespecte: vars.incoming.delaiRoute default true,
+      montantCaution: vars.incoming.cautionRequise default 0,
+      etapeWorkflow: 16
+    }]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<http:request method="POST" doc:name="Send Manifeste to Commission" doc:id="b0e2e882-8000-482f-bf64-c16d9b456bb8" config-ref="commissionConfig" path="${commission.uemoa.endpoints.transit}">
+				<http:headers><![CDATA[#[{
+    "Authorization": "Bearer ${commission.uemoa.auth.token}",
+    "Content-Type": "application/json",
+    "X-Source-System": "KIT_INTERCONNEXION_UEMOA",
+    "X-Correlation-ID": vars.correlationId,
+    "X-Workflow-Step": "16_COMMISSION_TRANSIT"
+}]]]></http:headers>
+			</http:request>
+			<logger level="INFO" doc:name="Log Commission Transit Success" doc:id="5772c669-d0ab-4397-ae01-29a17efce970" message="✅ [Kit] Commission UEMOA notifiée - Transit" />
+		</async>
+	</sub-flow>
+	<sub-flow name="health-check" doc:id="004e345d-8b0d-4830-b452-3bcf4921ce6c">
         <!-- ✅ Tests connectivité systèmes -->
         <try doc:name="Test Systems Connectivity">
             <!-- Test Sénégal -->
